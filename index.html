@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OVERTIME</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>加班记录助手 Pro</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -11,28 +11,20 @@
       darkMode: 'class',
       theme: {
         extend: {
-          fontFamily: { sans: ['Inter', 'sans-serif'] },
-          colors: { slate: { 850: '#1e293b', 900: '#0f172a' } }
+          fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
         }
       }
     }
   </script>
   
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-
-  <!-- 1. 修改：使用固定版本的Babel，避免自动更新导致的问题 -->
   <script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
   <script>
-    // 2. 新增：配置Babel的React预设
     Babel.registerPreset('react-app', {
       presets: [
         Babel.availablePresets['react'],
-        [Babel.availablePresets['env'], {
-          targets: { esmodules: true },
-          modules: false
-        }]
+        [Babel.availablePresets['env'], { targets: { esmodules: true }, modules: false }]
       ]
     });
   </script>
@@ -51,108 +43,96 @@
   </script>
 
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; overscroll-behavior: none; }
+
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
     .dark ::-webkit-scrollbar-thumb { background: #475569; }
-    .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-    /* Animation Utils */
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+    .anim-fade-up { animation: fadeUp 0.25s ease-out forwards; }
+    .anim-scale-in { animation: scaleIn 0.2s ease-out forwards; }
+    .anim-slide-up { animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+
+    /* Mobile bottom sheet */
+    .bottom-sheet { border-radius: 20px 20px 0 0; }
+
+    /* Glassmorphism card */
+    .glass { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+    /* Calendar grid touch */
+    .day-cell { touch-action: manipulation; }
+    .day-cell:active { transform: scale(0.96); transition: transform 0.1s; }
+
+    /* Prevent text selection on tap */
+    .no-select { -webkit-user-select: none; user-select: none; }
+
+    /* Mobile tab bar */
+    .tab-bar { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+    /* Smooth transitions */
+    .view-transition { transition: opacity 0.2s ease; }
+
+    /* Input styling for mobile */
+    input[type="time"], input[type="date"], input[type="number"], select, textarea {
+      font-size: 16px !important; /* Prevents iOS zoom */
+    }
+
+    /* Stat card gradient borders */
+    .grad-border-blue { background: linear-gradient(white, white) padding-box, linear-gradient(135deg, #3b82f6, #6366f1) border-box; border: 1.5px solid transparent; }
+    .grad-border-purple { background: linear-gradient(white, white) padding-box, linear-gradient(135deg, #8b5cf6, #ec4899) border-box; border: 1.5px solid transparent; }
+    .dark .grad-border-blue { background: linear-gradient(#1e293b, #1e293b) padding-box, linear-gradient(135deg, #3b82f6, #6366f1) border-box; }
+    .dark .grad-border-purple { background: linear-gradient(#1e293b, #1e293b) padding-box, linear-gradient(135deg, #8b5cf6, #ec4899) border-box; }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
-  <!-- 3. 修改：指定Babel预设为react-app，确保JSX正确编译 -->
   <script type="text/babel" data-type="module" data-presets="react-app">
-    import React, { useState, useEffect } from 'react';
+    import React, { useState, useEffect, useRef } from 'react';
     import ReactDOM from 'react-dom/client';
-    import { 
-      BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell 
-    } from 'recharts';
-    import { 
-      Download, Upload, Briefcase, Moon, Sun, Type, ChevronLeft, ChevronRight, Plus, X, Save, Trash2, Clock, CalendarDays, TrendingUp, Calculator, Search, AlertCircle, Info, PieChart as PieIcon, MessageSquare
-    } from 'lucide-react';
+    import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
+    import { Download, Upload, Briefcase, Moon, Sun, ChevronLeft, ChevronRight, X, Save, Trash2, Clock, CalendarDays, TrendingUp, Calculator, PieChart as PieIcon, BarChart2, Settings, Menu, Plus } from 'lucide-react';
     import { Solar, Lunar, HolidayUtil } from 'lunar-javascript';
 
-    // --- TYPES & ENUMS (Converted to JS Objects) ---
-    const RecordCategory = {
-      OVERTIME: '加班',
-      LEAVE: '请假'
-    };
+    const RecordCategory = { OVERTIME: '加班', LEAVE: '请假' };
+    const OvertimeType = { WEEKDAY: '平日加班', WEEKEND: '周末加班', HOLIDAY: '节假日加班' };
+    const LeaveType = { COMPENSATORY: '调休', PERSONAL: '事假', SICK: '病假', ANNUAL: '年假', OTHER: '其他' };
 
-    const OvertimeType = {
-      WEEKDAY: '平日加班',
-      WEEKEND: '周末加班',
-      HOLIDAY: '节假日加班'
-    };
-
-    const LeaveType = {
-      COMPENSATORY: '调休',
-      PERSONAL: '事假',
-      SICK: '病假',
-      ANNUAL: '年假',
-      OTHER: '其他'
-    };
-
-    // --- UTILS: Excel Utils ---
+    // --- UTILS ---
     const exportToExcel = (records) => {
-      if (records.length === 0) {
-        alert("暂无记录可导出。");
-        return;
-      }
+      if (records.length === 0) { alert("暂无记录可导出。"); return; }
       const dataToExport = records.map(record => {
         const dateObj = new Date(record.date);
         const dayOfWeek = dateObj.toLocaleDateString('zh-CN', { weekday: 'long' });
-        return {
-          "日期": record.date,
-          "星期": dayOfWeek,
-          "分类": record.category,
-          "类型": record.type,
-          "开始时间": record.startTime,
-          "结束时间": record.endTime,
-          "时长(小时)": record.duration,
-          "备注": record.note
-        };
+        return { "日期": record.date, "星期": dayOfWeek, "分类": record.category, "类型": record.type, "开始时间": record.startTime, "结束时间": record.endTime, "时长(小时)": record.duration, "备注": record.note };
       });
       const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "考勤记录");
       const now = new Date();
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      XLSX.writeFile(wb, `考勤记录_备份_${today}.xlsx`);
+      XLSX.writeFile(wb, `考勤记录_${today}.xlsx`);
     };
 
-    const parseImportFile = (file) => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const data = e.target?.result;
-            if (typeof data === 'string') {
-              const parsed = JSON.parse(data);
-              if (Array.isArray(parsed)) {
-                const migrated = parsed.map(p => ({
-                  ...p,
-                  category: p.category || '加班',
-                  type: p.type || '平日加班'
-                }));
-                resolve(migrated);
-              } else {
-                reject(new Error("无效的 JSON 格式"));
-              }
-            }
-          } catch (err) { reject(err); }
-        };
-        reader.onerror = (err) => reject(err);
-        reader.readAsText(file);
-      });
-    };
+    const parseImportFile = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target?.result);
+          if (Array.isArray(parsed)) resolve(parsed.map(p => ({ ...p, category: p.category || '加班', type: p.type || '平日加班' })));
+          else reject(new Error("无效格式"));
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
 
-    // --- COMPONENT: RecordModal ---
+    // --- MODAL: Record Entry (Mobile-first bottom sheet / PC centered) ---
     const RecordModal = ({ isOpen, onClose, onSave, onDelete, selectedDate, existingRecord }) => {
       const [category, setCategory] = useState(RecordCategory.OVERTIME);
       const [startTime, setStartTime] = useState('18:00');
@@ -173,9 +153,7 @@
           } else {
             const isWeekend = selectedDate.getDay() === 0 || selectedDate.getDay() === 6;
             setCategory(RecordCategory.OVERTIME);
-            setStartTime('18:00'); 
-            setEndTime('20:00');
-            setDuration(2.0);
+            setStartTime('18:00'); setEndTime('20:00'); setDuration(2.0);
             setType(isWeekend ? OvertimeType.WEEKEND : OvertimeType.WEEKDAY);
             setNote('');
           }
@@ -185,43 +163,26 @@
       useEffect(() => {
         if (!isOpen) return;
         if (category === RecordCategory.OVERTIME) {
-           const isLeaveType = Object.values(LeaveType).includes(type);
-           if (isLeaveType) setType(OvertimeType.WEEKDAY);
-           if (startTime === '08:00' && endTime === '17:00') {
-               setStartTime('18:00'); setEndTime('20:00'); calculateAndSetDuration('18:00', '20:00');
-           }
+          const isLeaveType = Object.values(LeaveType).includes(type);
+          if (isLeaveType) setType(OvertimeType.WEEKDAY);
+          if (startTime === '08:00' && endTime === '17:00') { setStartTime('18:00'); setEndTime('20:00'); calculateAndSetDuration('18:00', '20:00'); }
         } else {
-           const isOtType = Object.values(OvertimeType).includes(type);
-           if (isOtType) setType(LeaveType.COMPENSATORY);
-           if (startTime === '18:00' && endTime === '20:00') {
-               setStartTime('08:00'); setEndTime('17:00'); calculateAndSetDuration('08:00', '17:00');
-           }
+          const isOtType = Object.values(OvertimeType).includes(type);
+          if (isOtType) setType(LeaveType.COMPENSATORY);
+          if (startTime === '18:00' && endTime === '20:00') { setStartTime('08:00'); setEndTime('17:00'); calculateAndSetDuration('08:00', '17:00'); }
         }
       }, [category]);
 
       const calculateAndSetDuration = (start, end) => {
         const [startH, startM] = start.split(':').map(Number);
         const [endH, endM] = end.split(':').map(Number);
-        let startMin = startH * 60 + startM;
-        let endMin = endH * 60 + endM;
+        let startMin = startH * 60 + startM, endMin = endH * 60 + endM;
         if (endMin < startMin) endMin += 24 * 60;
         let diffHours = (endMin - startMin) / 60;
-        const restPeriods = [
-    	[12 * 60, 13 * 60, 1], // 午休：12:00-13:00，扣1小时
-    	[17 * 60, 18 * 60, 1]  // 晚休：17:00-18:00，扣1小时（新增）
-        ];
-  	// 遍历所有休息时段，累计需要扣除的总时长
-        let totalRestHours = 0;
-        restPeriods.forEach(([restStart, restEnd, deductHours]) => {
-   	 // 判定：当前时间范围是否覆盖该休息时段（开始≤休息结束 且 结束≥休息开始）
-           const isCoversRest = startMin < restEnd && endMin > restStart;
-           if (isCoversRest) {
-             totalRestHours += deductHours; // 覆盖则累加扣除时长
-          }
-        });
-  	// 应用扣除（确保扣除后时长≥0）
-        diffHours = Math.max(diffHours - totalRestHours, 0);
-        setDuration(parseFloat(diffHours.toFixed(1)));
+        const restPeriods = [[12 * 60, 13 * 60, 1], [17 * 60, 18 * 60, 1]];
+        let totalRest = 0;
+        restPeriods.forEach(([rs, re, d]) => { if (startMin < re && endMin > rs) totalRest += d; });
+        setDuration(parseFloat(Math.max(diffHours - totalRest, 0).toFixed(1)));
       };
 
       const handleTimeChange = (field, value) => {
@@ -239,45 +200,101 @@
           date: `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`,
           startTime, endTime, duration: Number(duration), category, type, note
         };
-        onSave(record);
-        onClose();
+        onSave(record); onClose();
       };
 
       if (!isOpen) return null;
 
+      const dateLabel = selectedDate.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
+      const isOT = category === RecordCategory.OVERTIME;
+
       return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white dark:bg-slate-800 rounded shadow-xl w-full max-w-[95%] sm:max-w-md overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="bg-gray-100 dark:bg-slate-700 px-3 py-2 sm:px-4 sm:py-3 flex justify-between items-center border-b dark:border-slate-600">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white">{selectedDate.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}</h2>
-              <button onClick={onClose}><X size={20} className="text-gray-500" /></button>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={(e) => e.target === e.currentTarget && onClose()}>
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+          
+          {/* Sheet */}
+          <div className="relative w-full sm:max-w-md bottom-sheet sm:rounded-2xl bg-white dark:bg-slate-900 shadow-2xl anim-slide-up sm:anim-scale-in overflow-hidden">
+            {/* Handle bar (mobile) */}
+            <div className="sm:hidden flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-slate-200 dark:bg-slate-700" />
             </div>
-            <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto">
-              <div className="flex border rounded overflow-hidden">
-                <button type="button" onClick={() => setCategory(RecordCategory.OVERTIME)} className={`flex-1 py-2 text-sm font-medium ${category === RecordCategory.OVERTIME ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}>加班</button>
-                <button type="button" onClick={() => setCategory(RecordCategory.LEAVE)} className={`flex-1 py-2 text-sm font-medium ${category === RecordCategory.LEAVE ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}>请假</button>
+
+            {/* Header */}
+            <div className={`px-5 py-4 flex justify-between items-center ${isOT ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-gradient-to-r from-purple-500 to-pink-500'}`}>
+              <div>
+                <p className="text-white/80 text-xs font-medium uppercase tracking-wider">记录工时</p>
+                <h2 className="text-white font-bold text-lg leading-tight">{dateLabel}</h2>
               </div>
+              <button onClick={onClose} className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
+                <X size={18} className="text-white" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
+              {/* Category toggle */}
+              <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                <button type="button" onClick={() => setCategory(RecordCategory.OVERTIME)}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${isOT ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500'}`}>
+                  ⏰ 加班
+                </button>
+                <button type="button" onClick={() => setCategory(RecordCategory.LEAVE)}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${!isOT ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-sm' : 'text-slate-500'}`}>
+                  🌿 请假
+                </button>
+              </div>
+
+              {/* Time row */}
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">开始时间</label><input type="time" required value={startTime} onChange={(e) => handleTimeChange('start', e.target.value)} className="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                <div><label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">结束时间</label><input type="time" required value={endTime} onChange={(e) => handleTimeChange('end', e.target.value)} className="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                {[['开始时间', 'start', startTime], ['结束时间', 'end', endTime]].map(([label, field, val]) => (
+                  <div key={field}>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</label>
+                    <input type="time" required value={val} onChange={(e) => handleTimeChange(field, e.target.value)}
+                      className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                  </div>
+                ))}
               </div>
+
+              {/* Duration */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">时长 (小时)</label>
-                <input type="number" step="0.1" required value={duration} onChange={(e) => setDuration(parseFloat(e.target.value))} className="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">时长（小时）</label>
+                <div className="flex items-center gap-3">
+                  <input type="number" step="0.5" min="0" required value={duration} onChange={(e) => setDuration(parseFloat(e.target.value))}
+                    className="flex-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                  <div className={`px-4 py-3 rounded-xl text-sm font-bold ${isOT ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'}`}>
+                    {duration}h
+                  </div>
+                </div>
               </div>
+
+              {/* Type */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">类型</label>
-                <select value={type} onChange={(e) => setType(e.target.value)} className="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white">
-                  {category === RecordCategory.OVERTIME ? Object.values(OvertimeType).map(t => <option key={t} value={t}>{t}</option>) : Object.values(LeaveType).map(t => <option key={t} value={t}>{t}</option>)}
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">类型</label>
+                <select value={type} onChange={(e) => setType(e.target.value)}
+                  className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                  {isOT ? Object.values(OvertimeType).map(t => <option key={t} value={t}>{t}</option>) : Object.values(LeaveType).map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
+
+              {/* Note */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">备注</label>
-                <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">备注</label>
+                <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="选填..."
+                  className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none" />
               </div>
-              <div className="flex items-center gap-3 pt-2">
-                 {existingRecord && <button type="button" onClick={() => { onDelete(existingRecord.id); onClose(); }} className="p-2 border rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 size={20} /></button>}
-                <button type="submit" className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-2 rounded flex items-center justify-center gap-2"><Save size={18} /> 保存</button>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
+                {existingRecord && (
+                  <button type="button" onClick={() => { onDelete(existingRecord.id); onClose(); }}
+                    className="p-3 rounded-xl border-2 border-red-200 dark:border-red-900 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+                    <Trash2 size={20} />
+                  </button>
+                )}
+                <button type="submit"
+                  className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-semibold text-white shadow-lg transition-all active:scale-95 ${isOT ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-blue-200 dark:shadow-blue-900' : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-purple-200 dark:shadow-purple-900'}`}>
+                  <Save size={18} /> 保存记录
+                </button>
               </div>
             </form>
           </div>
@@ -287,199 +304,170 @@
 
     // --- COMPONENT: StatsPanel ---
     const StatsPanel = ({ records, hourlyRate, setHourlyRate, currentMonth }) => {
-      const [calcStart, setCalcStart] = useState(() => {
-        const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        return `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-${String(firstDay.getDate()).padStart(2, '0')}`;
-      });
-      const [calcEnd, setCalcEnd] = useState(() => {
-        const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      });
+      const [calcStart, setCalcStart] = useState(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`; });
+      const [calcEnd, setCalcEnd] = useState(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; });
       const [calcRate, setCalcRate] = useState(hourlyRate);
       const [calcResult, setCalcResult] = useState(null);
 
-      // --- FIX: Use local time for filtering current month records ---
-      // Old: const currentMonthStr = currentMonth.toISOString().slice(0, 7);
-      const year = currentMonth.getFullYear();
-      const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
-      const currentMonthStr = `${year}-${month}`;
-      
+      const y = currentMonth.getFullYear(), m = String(currentMonth.getMonth()+1).padStart(2,'0');
+      const currentMonthStr = `${y}-${m}`;
       const currentMonthRecords = records.filter(r => r.date.startsWith(currentMonthStr));
-      
       const otRecords = currentMonthRecords.filter(r => r.category === RecordCategory.OVERTIME || !r.category);
       const leaveRecords = currentMonthRecords.filter(r => r.category === RecordCategory.LEAVE);
-      const totalOtHours = otRecords.reduce((acc, curr) => acc + curr.duration, 0);
-      const totalLeaveHours = leaveRecords.reduce((acc, curr) => acc + curr.duration, 0);
+      const totalOtHours = otRecords.reduce((a, c) => a + c.duration, 0);
+      const totalLeaveHours = leaveRecords.reduce((a, c) => a + c.duration, 0);
 
-      // Pie Chart Data Calculation
       let otBreakdown = { weekday: 0, weekend: 0, holiday: 0 };
       otRecords.forEach(r => {
-        if(r.type === OvertimeType.WEEKDAY) otBreakdown.weekday += r.duration;
-        else if(r.type === OvertimeType.WEEKEND) otBreakdown.weekend += r.duration;
-        else if(r.type === OvertimeType.HOLIDAY) otBreakdown.holiday += r.duration;
-        else otBreakdown.weekday += r.duration; 
+        if (r.type === OvertimeType.WEEKDAY) otBreakdown.weekday += r.duration;
+        else if (r.type === OvertimeType.WEEKEND) otBreakdown.weekend += r.duration;
+        else if (r.type === OvertimeType.HOLIDAY) otBreakdown.holiday += r.duration;
+        else otBreakdown.weekday += r.duration;
       });
 
       const pieData = [
-        { name: '平日加班', value: parseFloat(otBreakdown.weekday.toFixed(1)) },
-        { name: '周末加班', value: parseFloat(otBreakdown.weekend.toFixed(1)) },
-        { name: '节假日加班', value: parseFloat(otBreakdown.holiday.toFixed(1)) }
-      ].filter(item => item.value > 0);
-
-      const pieColors = ['#3b82f6', '#f97316', '#ef4444']; // Blue, Orange, Red
+        { name: '平日', value: parseFloat(otBreakdown.weekday.toFixed(1)) },
+        { name: '周末', value: parseFloat(otBreakdown.weekend.toFixed(1)) },
+        { name: '节假日', value: parseFloat(otBreakdown.holiday.toFixed(1)) }
+      ].filter(i => i.value > 0);
+      const pieColors = ['#3b82f6', '#f97316', '#ef4444'];
 
       const getLast6MonthsData = () => {
-        const data = [];
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(currentMonth);
-          d.setMonth(d.getMonth() - i);
-          
-          // --- FIX: Use local time for generating bar chart keys ---
-          // Old: const monthStr = d.toISOString().slice(0, 7);
-          const y = d.getFullYear();
-          const m = String(d.getMonth() + 1).padStart(2, '0');
-          const monthStr = `${y}-${m}`;
-
-          const label = d.toLocaleDateString('zh-CN', { month: 'short' });
-          const monthRecords = records.filter(r => r.date.startsWith(monthStr));
-          
+        return Array.from({ length: 6 }, (_, i) => {
+          const d = new Date(currentMonth); d.setMonth(d.getMonth() - (5 - i));
+          const ms = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          const mr = records.filter(r => r.date.startsWith(ms));
           let ot = 0, leave = 0;
-          monthRecords.forEach(r => {
-            if (r.category === RecordCategory.LEAVE) leave += r.duration;
-            else ot += r.duration;
-          });
-          data.push({ 
-            name: label, 
-            "加班": parseFloat(ot.toFixed(1)),
-            "请假": parseFloat(leave.toFixed(1))
-          });
-        }
-        return data;
+          mr.forEach(r => r.category === RecordCategory.LEAVE ? leave += r.duration : ot += r.duration);
+          return { name: d.toLocaleDateString('zh-CN', { month: 'short' }), '加班': parseFloat(ot.toFixed(1)), '请假': parseFloat(leave.toFixed(1)) };
+        });
       };
-      const barData = getLast6MonthsData();
 
       const handleCalculate = () => {
-        const targetRecords = records.filter(r => r.date >= calcStart && r.date <= calcEnd);
-        let weekdayOt = 0, weekendOt = 0, holidayOt = 0, leave = 0;
-        targetRecords.forEach(r => {
-          if (r.category === RecordCategory.LEAVE) leave += r.duration;
-          else {
-            if (r.type === OvertimeType.WEEKDAY) weekdayOt += r.duration;
-            else if (r.type === OvertimeType.WEEKEND) weekendOt += r.duration;
-            else if (r.type === OvertimeType.HOLIDAY) holidayOt += r.duration;
-            else weekdayOt += r.duration;
-          }
+        const tr = records.filter(r => r.date >= calcStart && r.date <= calcEnd);
+        let wkd = 0, wke = 0, hol = 0, lv = 0;
+        tr.forEach(r => {
+          if (r.category === RecordCategory.LEAVE) lv += r.duration;
+          else if (r.type === OvertimeType.WEEKDAY) wkd += r.duration;
+          else if (r.type === OvertimeType.WEEKEND) wke += r.duration;
+          else if (r.type === OvertimeType.HOLIDAY) hol += r.duration;
+          else wkd += r.duration;
         });
-        const weightedOt = (weekdayOt * 1.5) + (weekendOt * 2.0) + (holidayOt * 3.0);
-        const netHours = Math.max(0, weightedOt - leave);
-        const total = netHours * calcRate;
-
-        setCalcResult({
-          weekdayOt: parseFloat(weekdayOt.toFixed(1)),
-          weekendOt: parseFloat(weekendOt.toFixed(1)),
-          holidayOt: parseFloat(holidayOt.toFixed(1)),
-          weightedOt: parseFloat(weightedOt.toFixed(1)),
-          leave: parseFloat(leave.toFixed(1)),
-          // 修改处：保留1位小数
-          total: total.toFixed(1) 
-        });
+        const weighted = wkd*1.5 + wke*2.0 + hol*3.0;
+        const net = Math.max(0, weighted - lv);
+        setCalcResult({ weekdayOt: wkd.toFixed(1), weekendOt: wke.toFixed(1), holidayOt: hol.toFixed(1), weightedOt: weighted.toFixed(1), leave: lv.toFixed(1), total: (net * calcRate).toFixed(1) });
         if (calcRate !== hourlyRate) setHourlyRate(calcRate);
       };
 
+      const barData = getLast6MonthsData();
+
       return (
-        <div className="h-full flex flex-col gap-5 overflow-y-auto pr-2 pb-6">
-          {/* Top Overview Cards */}
-          <div className="shrink-0">
-             <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3">本月概览 ({currentMonth.toLocaleDateString('zh-CN', { month: 'long' })})</h3>
-             <div className="grid grid-cols-2 gap-4">
-               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl flex flex-col gap-1 border border-blue-100 dark:border-blue-900/50">
-                 <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <Clock size={16} /> <span className="text-sm font-medium">加班时长</span>
-                 </div>
-                 <span className="text-2xl font-bold text-slate-800 dark:text-white">{totalOtHours.toFixed(1)} <span className="text-sm font-normal text-slate-500">h</span></span>
-               </div>
-               <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl flex flex-col gap-1 border border-purple-100 dark:border-purple-900/50">
-                 <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
-                    <CalendarDays size={16} /> <span className="text-sm font-medium">请假/调休</span>
-                 </div>
-                 <span className="text-2xl font-bold text-slate-800 dark:text-white">{totalLeaveHours.toFixed(1)} <span className="text-sm font-normal text-slate-500">h</span></span>
-               </div>
-             </div>
+        <div className="space-y-4 pb-6">
+          {/* Month header */}
+          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+            {currentMonth.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })} · 概览
+          </h3>
+
+          {/* Overview cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grad-border-blue p-4 rounded-2xl">
+              <div className="flex items-center gap-2 text-blue-500 dark:text-blue-400 mb-2">
+                <div className="p-1.5 bg-blue-50 dark:bg-blue-900/40 rounded-lg"><Clock size={14} /></div>
+                <span className="text-xs font-semibold">加班时长</span>
+              </div>
+              <div className="text-3xl font-bold text-slate-800 dark:text-white">{totalOtHours.toFixed(1)}</div>
+              <div className="text-xs text-slate-400 mt-0.5">小时</div>
+            </div>
+            <div className="grad-border-purple p-4 rounded-2xl">
+              <div className="flex items-center gap-2 text-purple-500 dark:text-purple-400 mb-2">
+                <div className="p-1.5 bg-purple-50 dark:bg-purple-900/40 rounded-lg"><CalendarDays size={14} /></div>
+                <span className="text-xs font-semibold">请假 / 调休</span>
+              </div>
+              <div className="text-3xl font-bold text-slate-800 dark:text-white">{totalLeaveHours.toFixed(1)}</div>
+              <div className="text-xs text-slate-400 mt-0.5">小时</div>
+            </div>
           </div>
 
           {/* Pie Chart */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow shrink-0">
-             <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2"><PieIcon size={16} /> 本月工时构成</h3>
-             <div className="h-[180px] w-full relative">
-               {pieData.length > 0 ? (
-                 <ResponsiveContainer width="100%" height="100%">
-                   <PieChart>
-                     <Pie
-                       data={pieData}
-                       cx="50%"
-                       cy="50%"
-                       innerRadius={50}
-                       outerRadius={70}
-                       paddingAngle={5}
-                       dataKey="value"
-                     >
-                       {pieData.map((entry, index) => (
-                         <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                       ))}
-                     </Pie>
-                     <Tooltip contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '8px', fontSize: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                     <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
-                   </PieChart>
-                 </ResponsiveContainer>
-               ) : (
-                 <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">暂无数据</div>
-               )}
-             </div>
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+              <PieIcon size={15} className="text-indigo-500" /> 本月工时构成
+            </h3>
+            <div className="h-[160px]">
+              {pieData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={4} dataKey="value">
+                      {pieData.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: '10px', fontSize: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                    <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400 text-sm">本月暂无加班记录</div>
+              )}
+            </div>
           </div>
 
           {/* Bar Chart */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow shrink-0">
-             <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2"><TrendingUp size={16} /> 近6个月工时趋势</h3>
-             <div className="h-[200px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} barGap={4} margin={{top: 5, right: 5, bottom: 5, left: -20}}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748b'}} dy={5} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748b'}} />
-                    <Tooltip cursor={{fill: 'rgba(241, 245, 249, 0.5)'}} contentStyle={{ backgroundColor: '#fff', border: 'none', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }} />
-                    <Legend verticalAlign="top" height={36} iconType="rect" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
-                    <Bar name="加班" dataKey="加班" fill="#3b82f6" radius={[2, 2, 0, 0]} barSize={12} />
-                    <Bar name="请假" dataKey="请假" fill="#c084fc" radius={[2, 2, 0, 0]} barSize={12} />
-                  </BarChart>
-                </ResponsiveContainer>
-             </div>
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+              <TrendingUp size={15} className="text-emerald-500" /> 近6个月趋势
+            </h3>
+            <div className="h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData} barGap={3} margin={{top:5,right:0,bottom:0,left:-25}}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize:10,fill:'#94a3b8'}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize:10,fill:'#94a3b8'}} />
+                  <Tooltip cursor={{fill:'rgba(241,245,249,0.6)'}} contentStyle={{backgroundColor:'#fff',border:'none',borderRadius:'10px',boxShadow:'0 4px 20px rgba(0,0,0,0.1)',fontSize:'12px'}} />
+                  <Legend verticalAlign="top" height={28} iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}} />
+                  <Bar name="加班" dataKey="加班" fill="#3b82f6" radius={[3,3,0,0]} barSize={10} />
+                  <Bar name="请假" dataKey="请假" fill="#a78bfa" radius={[3,3,0,0]} barSize={10} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          {/* Calculator - Simplified */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow shrink-0">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3"><Calculator size={16} /> 加班费核算</h3>
+          {/* Calculator */}
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
+              <Calculator size={15} className="text-amber-500" /> 加班费核算
+            </h3>
             <div className="space-y-3">
-               <div className="flex gap-2 items-center text-sm"><span className="w-16 text-slate-500">开始:</span><input type="date" value={calcStart} onChange={(e) => setCalcStart(e.target.value)} className="flex-1 border p-1.5 rounded bg-slate-50 dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-1 focus:ring-blue-500" /></div>
-               <div className="flex gap-2 items-center text-sm"><span className="w-16 text-slate-500">结束:</span><input type="date" value={calcEnd} onChange={(e) => setCalcEnd(e.target.value)} className="flex-1 border p-1.5 rounded bg-slate-50 dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-1 focus:ring-blue-500" /></div>
-               <div className="flex gap-2 items-center text-sm"><span className="w-16 text-slate-500">时薪:</span><input type="number" value={calcRate} onChange={(e) => setCalcRate(Number(e.target.value))} className="flex-1 border p-1.5 rounded bg-slate-50 dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-1 focus:ring-blue-500" /></div>
-               <button onClick={handleCalculate} className="w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white py-2 rounded-lg text-sm font-medium transition-colors">开始计算</button>
-            </div>
-            
-            {calcResult && (
-              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 animate-fade-in">
-                <div className="flex justify-between items-center bg-green-50 dark:bg-green-900/20 p-3 border border-green-100 dark:border-green-900/50 rounded-lg mb-3">
-                  <span className="font-medium text-green-700 dark:text-green-400 text-sm">预计发放</span>
-                  <span className="font-bold text-lg text-green-700 dark:text-green-400">¥{calcResult.total}</span>
+              {[['开始', calcStart, setCalcStart, 'date'], ['结束', calcEnd, setCalcEnd, 'date'], ['时薪 (¥)', calcRate, setCalcRate, 'number']].map(([label, val, setter, type]) => (
+                <div key={label} className="flex items-center gap-3">
+                  <span className="text-xs font-medium text-slate-400 w-16 shrink-0">{label}</span>
+                  <input type={type} value={val} onChange={e => setter(type === 'number' ? Number(e.target.value) : e.target.value)}
+                    className="flex-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 rounded-xl text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 transition" />
                 </div>
-                
-                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
-                   <p className="font-semibold mb-1">计算明细:</p>
-                   <div className="flex justify-between"><span>平日加班 (1.5倍):</span><span>{calcResult.weekdayOt}h</span></div>
-                   <div className="flex justify-between"><span>周末加班 (2.0倍):</span><span>{calcResult.weekendOt}h</span></div>
-                   <div className="flex justify-between"><span>节假加班 (3.0倍):</span><span>{calcResult.holidayOt}h</span></div>
-                   <div className="flex justify-between text-red-500 dark:text-red-400"><span>请假扣除:</span><span>-{calcResult.leave}h</span></div>
-                   <div className="border-t border-slate-200 dark:border-slate-700 pt-1.5 mt-1 flex justify-between font-medium"><span>加权净工时:</span><span>{Math.max(0, calcResult.weightedOt - calcResult.leave).toFixed(1)}h</span></div>
+              ))}
+              <button onClick={handleCalculate}
+                className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white py-3 rounded-xl text-sm font-bold transition-all active:scale-95 shadow-lg shadow-amber-100 dark:shadow-amber-900/30 mt-1">
+                💰 开始计算
+              </button>
+            </div>
+
+            {calcResult && (
+              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 anim-fade-up">
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800 mb-3 flex justify-between items-center">
+                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">预计发放</span>
+                  <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">¥{calcResult.total}</span>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3 text-xs space-y-2">
+                  <p className="font-semibold text-slate-600 dark:text-slate-400 mb-2">计算明细</p>
+                  {[['平日加班 ×1.5', calcResult.weekdayOt], ['周末加班 ×2.0', calcResult.weekendOt], ['节假加班 ×3.0', calcResult.holidayOt]].map(([label, val]) => (
+                    <div key={label} className="flex justify-between text-slate-500 dark:text-slate-400">
+                      <span>{label}</span><span className="font-medium">{val}h</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-red-500 dark:text-red-400">
+                    <span>请假扣除</span><span className="font-medium">-{calcResult.leave}h</span>
+                  </div>
+                  <div className="border-t border-slate-200 dark:border-slate-700 pt-2 flex justify-between font-bold text-slate-700 dark:text-slate-300">
+                    <span>加权净工时</span><span>{Math.max(0, calcResult.weightedOt - calcResult.leave).toFixed(1)}h</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -489,120 +477,134 @@
     };
 
     // --- COMPONENT: Calendar ---
-    const Calendar = ({ currentDate, onDateChange, records, onDayClick, fontScale }) => {
-      const [selectedLunarInfo, setSelectedLunarInfo] = useState('');
+    const Calendar = ({ currentDate, onDateChange, records, onDayClick, fontScale = 1.0 }) => {
+      const [lunarInfo, setLunarInfo] = useState('');
 
       useEffect(() => {
         const today = new Date();
-        const targetDate = (currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear()) ? today : new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        updateLunarInfo(targetDate);
+        const target = (currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear()) ? today : new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        updateLunar(target);
       }, [currentDate]);
 
-      const updateLunarInfo = (date) => {
-        const solar = Solar.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
+      const updateLunar = (date) => {
+        const solar = Solar.fromYmd(date.getFullYear(), date.getMonth()+1, date.getDate());
         const lunar = solar.getLunar();
         let info = `农历${lunar.getYearInGanZhi()}年 ${lunar.getMonthInChinese()}月${lunar.getDayInChinese()} · ${lunar.getYearShengXiao()}年`;
-        const jieQi = lunar.getJieQi();
-        if (jieQi) info += ` · ${jieQi}`;
-        const festivals = [...solar.getFestivals(), ...lunar.getFestivals()];
-        if (festivals.length > 0) info += ` · ${festivals.join(' ')}`;
-        const holiday = HolidayUtil.getHoliday(date.getFullYear(), date.getMonth() + 1, date.getDate());
-        if (holiday) info += ` · ${holiday.getName()} ${holiday.isWork() ? '(班)' : '(休)'}`;
-        setSelectedLunarInfo(info);
-      };
-      
-      const getDaysInMonth = (date) => {
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstDayOfMonth = new Date(year, month, 1).getDay();
-        return { daysInMonth, firstDayOfMonth };
+        const jq = lunar.getJieQi(); if (jq) info += ` · ${jq}`;
+        const fests = [...solar.getFestivals(), ...lunar.getFestivals()]; if (fests.length) info += ` · ${fests.join(' ')}`;
+        const hol = HolidayUtil.getHoliday(date.getFullYear(), date.getMonth()+1, date.getDate());
+        if (hol) info += ` · ${hol.getName()} ${hol.isWork() ? '(班)' : '(休)'}`;
+        setLunarInfo(info);
       };
 
-      const { daysInMonth, firstDayOfMonth } = getDaysInMonth(currentDate);
-      const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-      const blanks = Array.from({ length: firstDayOfMonth }, (_, i) => i);
+      const { daysInMonth, firstDayOfMonth } = (() => {
+        const year = currentDate.getFullYear(), month = currentDate.getMonth();
+        return { daysInMonth: new Date(year, month+1, 0).getDate(), firstDayOfMonth: new Date(year, month, 1).getDay() };
+      })();
 
-      const getRecordForDay = (day) => {
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        return records.find(r => r.date === dateStr);
+      const getRecord = (day) => {
+        const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+        const str = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        return records.find(r => r.date === str);
       };
 
       const getDayLabel = (day) => {
-        const solar = Solar.fromYmd(currentDate.getFullYear(), currentDate.getMonth() + 1, day);
+        const solar = Solar.fromYmd(currentDate.getFullYear(), currentDate.getMonth()+1, day);
         const lunar = solar.getLunar();
-        const holiday = HolidayUtil.getHoliday(currentDate.getFullYear(), currentDate.getMonth() + 1, day);
-        if (holiday && !holiday.isWork()) return { text: holiday.getName(), color: 'text-red-500 font-bold' };
-        if (holiday && holiday.isWork()) return { text: '班', color: 'text-gray-400' };
-        const solarFestivals = solar.getFestivals();
-        if (solarFestivals.length > 0) return { text: solarFestivals[0], color: 'text-red-500' };
-        const lunarFestivals = lunar.getFestivals();
-        if (lunarFestivals.length > 0) return { text: lunarFestivals[0], color: 'text-red-500' };
-        const jieQi = lunar.getJieQi();
-        if (jieQi) return { text: jieQi, color: 'text-green-600 dark:text-green-400' };
-        const d = lunar.getDayInChinese();
-        const m = lunar.getMonthInChinese();
-        return { text: d === '初一' ? `${m}月` : d, color: 'text-gray-400 dark:text-gray-500' };
+        const hol = HolidayUtil.getHoliday(currentDate.getFullYear(), currentDate.getMonth()+1, day);
+        if (hol && !hol.isWork()) return { text: hol.getName(), color: 'text-red-500 font-bold' };
+        if (hol && hol.isWork()) return { text: '班', color: 'text-slate-400' };
+        const sf = solar.getFestivals(); if (sf.length) return { text: sf[0], color: 'text-red-500' };
+        const lf = lunar.getFestivals(); if (lf.length) return { text: lf[0], color: 'text-red-500' };
+        const jq = lunar.getJieQi(); if (jq) return { text: jq, color: 'text-emerald-600 dark:text-emerald-400' };
+        const d = lunar.getDayInChinese(), m = lunar.getMonthInChinese();
+        return { text: d === '初一' ? `${m}月` : d, color: 'text-slate-400 dark:text-slate-500' };
       };
 
-      const getRecordStyle = (record) => {
-        if (record.category === RecordCategory.LEAVE) return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-        switch (record.type) {
-          case OvertimeType.WEEKDAY: return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-          case OvertimeType.WEEKEND: return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-          case OvertimeType.HOLIDAY: return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-          default: return 'bg-gray-100 text-gray-800';
-        }
+      const getRecordStyle = (r) => {
+        if (r.category === RecordCategory.LEAVE) return { bg: 'bg-violet-500', light: 'bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' };
+        if (r.type === OvertimeType.WEEKEND) return { bg: 'bg-orange-400', light: 'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' };
+        if (r.type === OvertimeType.HOLIDAY) return { bg: 'bg-red-500', light: 'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-300' };
+        return { bg: 'bg-blue-500', light: 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' };
       };
+
+      const today = new Date();
+      const blanks = Array.from({ length: firstDayOfMonth });
+      const days = Array.from({ length: daysInMonth }, (_, i) => i+1);
 
       return (
-        <div className="bg-white dark:bg-slate-800 h-full flex flex-col border rounded shadow">
-          {/* Header */}
-          <div className="flex justify-between items-center p-4 border-b dark:border-slate-700">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">{currentDate.toLocaleDateString('zh-CN', { month: 'long', year: 'numeric' })}</h2>
-            <div className="flex gap-2">
-              <button onClick={() => onDateChange(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="p-1 border rounded hover:bg-gray-100 dark:hover:bg-slate-700 dark:border-slate-600"><ChevronLeft size={20} /></button>
-              <button onClick={() => onDateChange(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className="p-1 border rounded hover:bg-gray-100 dark:hover:bg-slate-700 dark:border-slate-600"><ChevronRight size={20} /></button>
+        <div className="bg-white dark:bg-slate-800 h-full flex flex-col rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+          {/* Calendar Header */}
+          <div className="flex justify-between items-center px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+            <button onClick={() => onDateChange(new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1))}
+              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition text-slate-500 dark:text-slate-400">
+              <ChevronLeft size={18} />
+            </button>
+            <div className="text-center">
+              <h2 className="font-bold text-slate-800 dark:text-white text-base">
+                {currentDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })}
+              </h2>
             </div>
+            <button onClick={() => onDateChange(new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 1))}
+              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition text-slate-500 dark:text-slate-400">
+              <ChevronRight size={18} />
+            </button>
           </div>
-          {/* Week Header */}
-          <div className="grid grid-cols-7 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-900">
-            {['日', '一', '二', '三', '四', '五', '六'].map((day, i) => (
-              <div key={day} className={`py-2 text-center text-sm font-bold ${i === 0 || i === 6 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400'}`}>{day}</div>
+
+          {/* Week headers */}
+          <div className="grid grid-cols-7 bg-slate-50 dark:bg-slate-900/50">
+            {['日','一','二','三','四','五','六'].map((d, i) => (
+              <div key={d} className={`py-2 text-center text-xs font-bold ${i===0||i===6 ? 'text-orange-400' : 'text-slate-400 dark:text-slate-500'}`}>{d}</div>
             ))}
           </div>
-          {/* Calendar Grid - Table like */}
-          <div className="grid grid-cols-7 flex-1 auto-rows-fr gap-px bg-gray-200 dark:bg-slate-700 border-l border-t dark:border-slate-700">
-            {blanks.map((_, i) => <div key={`blank-${i}`} className="bg-white dark:bg-slate-800" />)}
+
+          {/* Grid */}
+          <div className="grid grid-cols-7 flex-1 gap-px bg-slate-100 dark:bg-slate-700 border-t border-slate-100 dark:border-slate-700">
+            {blanks.map((_, i) => <div key={`b${i}`} className="bg-white dark:bg-slate-800" />)}
             {days.map(day => {
-              const record = getRecordForDay(day);
-              const isToday = day === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear();
-              const labelInfo = getDayLabel(day);
+              const record = getRecord(day);
+              const isToday = day === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
+              const isWeekend = new Date(currentDate.getFullYear(), currentDate.getMonth(), day).getDay() % 6 === 0;
+              const label = getDayLabel(day);
+              const style = record ? getRecordStyle(record) : null;
+
               return (
-                <div key={day} onClick={() => {updateLunarInfo(new Date(currentDate.getFullYear(), currentDate.getMonth(), day)); onDayClick(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));}} className={`bg-white dark:bg-slate-800 p-1 cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-700 flex flex-col relative group ${isToday ? 'bg-blue-50 dark:bg-slate-700' : ''}`}>
+                <div key={day}
+                  onClick={() => { updateLunar(new Date(currentDate.getFullYear(), currentDate.getMonth(), day)); onDayClick(new Date(currentDate.getFullYear(), currentDate.getMonth(), day)); }}
+                  className={`day-cell no-select bg-white dark:bg-slate-800 p-1.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/80 flex flex-col min-h-[56px] sm:min-h-[80px] transition-colors ${isToday ? '!bg-blue-50 dark:!bg-blue-900/20' : ''}`}>
+                  
+                  {/* Day number + label row */}
                   <div className="flex justify-between items-start shrink-0">
-                    <span style={{ fontSize: `${1.2 * fontScale}rem` }} className={`font-bold leading-none ${isToday ? 'text-blue-600' : 'text-gray-700 dark:text-gray-200'}`}>{day}</span>
-                    <span style={{ fontSize: `${0.7 * fontScale}rem` }} className={`${labelInfo.color} truncate ml-1`}>{labelInfo.text}</span>
+                    <span style={{ fontSize: `${1.1 * fontScale}rem` }} className={`font-bold leading-none ${isToday ? 'text-blue-600 dark:text-blue-400' : isWeekend ? 'text-orange-500 dark:text-orange-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                      {day}
+                    </span>
+                    <span style={{ fontSize: `${0.62 * fontScale}rem` }} className={`${label.color} truncate ml-1 max-w-[36px] text-right leading-tight`}>{label.text}</span>
                   </div>
+
+                  {/* Record badge */}
                   {record && (
-                    <div className={`mt-1 p-0.5 text-center text-xs rounded shrink-0 ${getRecordStyle(record)}`}>
-                      <span style={{ fontSize: `${0.8 * fontScale}rem` }} className="font-bold">{record.duration}h</span>
+                    <div className={`mt-1 text-center rounded-lg px-0.5 py-0.5 shrink-0 ${style.light}`}>
+                      <span style={{ fontSize: `${0.72 * fontScale}rem` }} className="font-bold leading-none">{record.duration}h</span>
                     </div>
                   )}
+
+                  {/* Note */}
                   {record && record.note && (
-                    <div className="mt-auto pt-1 w-full" title={record.note}>
-                       <p className="truncate text-gray-500 dark:text-gray-400" style={{ fontSize: `${0.65 * fontScale}rem` }}>
-                         {record.note}
-                       </p>
+                    <div className="mt-auto pt-0.5 w-full overflow-hidden" title={record.note}>
+                      <p className="truncate text-slate-400 dark:text-slate-500 leading-tight" style={{ fontSize: `${0.58 * fontScale}rem` }}>{record.note}</p>
                     </div>
                   )}
+
+                  {/* Today indicator */}
+                  {isToday && !record && <div className="mt-auto w-1.5 h-1.5 rounded-full bg-blue-500 mx-auto" />}
                 </div>
               );
             })}
           </div>
-          <div className="p-2 border-t dark:border-slate-700 text-center text-xs text-gray-500 dark:text-gray-400">
-             {selectedLunarInfo}
+
+          {/* Lunar footer */}
+          <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+            <p className="text-[10px] text-slate-400 truncate text-center">{lunarInfo}</p>
           </div>
         </div>
       );
@@ -614,135 +616,217 @@
       const [currentDate, setCurrentDate] = useState(new Date());
       const [hourlyRate, setHourlyRate] = useState(25);
       const [isDarkMode, setIsDarkMode] = useState(false);
-      const [calendarScale, setCalendarScale] = useState(1.0);
+      const [fontScale, setFontScale] = useState(1.0);
       const [isModalOpen, setIsModalOpen] = useState(false);
       const [selectedDate, setSelectedDate] = useState(new Date());
       const [editingRecord, setEditingRecord] = useState(undefined);
+      // Mobile view: 'calendar' | 'stats'
+      const [mobileTab, setMobileTab] = useState('calendar');
+      const [showMobileMenu, setShowMobileMenu] = useState(false);
 
       useEffect(() => {
-        const savedRecords = localStorage.getItem('ot_records');
-        const savedRate = localStorage.getItem('ot_rate');
-        const savedTheme = localStorage.getItem('ot_theme');
-        const savedScale = localStorage.getItem('ot_scale');
-        if (savedRecords) {
+        const sr = localStorage.getItem('ot_records');
+        const rate = localStorage.getItem('ot_rate');
+        const theme = localStorage.getItem('ot_theme');
+        if (sr) {
           try {
-            const parsed = JSON.parse(savedRecords);
-            // 迁移旧记录中的日期格式（从UTC日期转换为本地日期）
-            const migrated = parsed.map(record => {
-              if (!record.date) return record;
-              // 旧记录中的日期可能是UTC日期（通过toISOString().split('T')[0]生成）
-              // 我们需要将其转换为本地日期
-              try {
-                // 检查是否为YYYY-MM-DD格式
-                const dateMatch = record.date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-                if (dateMatch) {
-                  // 将字符串解析为UTC日期（添加'Z'表示UTC）
-                  const utcDate = new Date(record.date + 'T00:00:00Z');
-                  // 检查日期是否有效
-                  if (!isNaN(utcDate.getTime())) {
-                    // 获取本地日期组件
-                    const localDate = `${utcDate.getFullYear()}-${String(utcDate.getMonth() + 1).padStart(2, '0')}-${String(utcDate.getDate()).padStart(2, '0')}`;
-                    // 如果本地日期与原始日期不同，则更新
-                    if (localDate !== record.date) {
-                      return { ...record, date: localDate };
-                    }
-                  }
+            const parsed = JSON.parse(sr);
+            const migrated = parsed.map(r => {
+              if (!r.date) return r;
+              const m = r.date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+              if (m) {
+                const utc = new Date(r.date + 'T00:00:00Z');
+                if (!isNaN(utc.getTime())) {
+                  const local = `${utc.getFullYear()}-${String(utc.getMonth()+1).padStart(2,'0')}-${String(utc.getDate()).padStart(2,'0')}`;
+                  if (local !== r.date) return { ...r, date: local };
                 }
-              } catch (e) {
-                console.warn('日期迁移失败:', e);
               }
-              return record;
+              return r;
             });
             setRecords(migrated);
-          } catch (e) { console.error("Failed", e); }
+          } catch(e) {}
         }
-        if (savedRate) setHourlyRate(Number(savedRate));
-        if (savedTheme === 'dark') { setIsDarkMode(true); document.documentElement.classList.add('dark'); }
-        if (savedScale) setCalendarScale(Number(savedScale));
+        if (rate) setHourlyRate(Number(rate));
+        if (theme === 'dark') { setIsDarkMode(true); document.documentElement.classList.add('dark'); }
+        const savedScale = localStorage.getItem('ot_scale');
+        if (savedScale) setFontScale(Number(savedScale));
       }, []);
 
       useEffect(() => { localStorage.setItem('ot_records', JSON.stringify(records)); }, [records]);
       useEffect(() => { localStorage.setItem('ot_rate', String(hourlyRate)); }, [hourlyRate]);
-      useEffect(() => { localStorage.setItem('ot_scale', String(calendarScale)); }, [calendarScale]);
+      useEffect(() => { localStorage.setItem('ot_scale', String(fontScale)); }, [fontScale]);
+
+      const adjustScale = (delta) => setFontScale(prev => parseFloat(Math.max(0.8, Math.min(1.4, prev + delta)).toFixed(1)));
 
       const toggleTheme = () => {
-        const newMode = !isDarkMode;
-        setIsDarkMode(newMode);
-        if (newMode) { document.documentElement.classList.add('dark'); localStorage.setItem('ot_theme', 'dark'); } 
-        else { document.documentElement.classList.remove('dark'); localStorage.setItem('ot_theme', 'light'); }
-      };
-
-      const adjustScale = (delta) => {
-        setCalendarScale(prev => {
-          const newVal = Math.max(0.8, Math.min(1.4, prev + delta));
-          return parseFloat(newVal.toFixed(1));
-        });
+        const next = !isDarkMode;
+        setIsDarkMode(next);
+        document.documentElement.classList.toggle('dark', next);
+        localStorage.setItem('ot_theme', next ? 'dark' : 'light');
       };
 
       const handleDayClick = (date) => {
-        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        const existing = records.find(r => r.date === dateStr);
+        const str = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
         setSelectedDate(date);
-        setEditingRecord(existing);
+        setEditingRecord(records.find(r => r.date === str));
         setIsModalOpen(true);
       };
 
-      const handleSaveRecord = (record) => {
-        setRecords(prev => {
-          const filtered = prev.filter(r => r.id !== record.id && r.date !== record.date);
-          return [...filtered, record];
-        });
-      };
-
-      const handleDeleteRecord = (id) => {
-        if (confirm("确认删除这条记录吗？")) setRecords(prev => prev.filter(r => r.id !== id));
-      };
+      const handleSave = (record) => setRecords(prev => [...prev.filter(r => r.id !== record.id && r.date !== record.date), record]);
+      const handleDelete = (id) => { if (confirm('确认删除？')) setRecords(prev => prev.filter(r => r.id !== id)); };
 
       const handleImport = async (e) => {
-        if (e.target.files && e.target.files[0]) {
+        if (e.target.files?.[0]) {
           try {
             const imported = await parseImportFile(e.target.files[0]);
-            if (confirm(`发现 ${imported.length} 条记录。这将覆盖当前数据。是否继续？`)) setRecords(imported);
-          } catch (err) { alert("导入失败。"); }
+            if (confirm(`发现 ${imported.length} 条记录，将覆盖当前数据，是否继续？`)) setRecords(imported);
+          } catch { alert('导入失败，请检查文件格式。'); }
         }
+        setShowMobileMenu(false);
       };
 
       const handleJSONExport = () => {
-         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(records));
-         const node = document.createElement('a');
-         node.setAttribute("href", dataStr);
-         node.setAttribute("download", "overtime_backup.json");
-         document.body.appendChild(node); node.click(); node.remove();
+        const a = document.createElement('a');
+        a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(records));
+        a.download = "overtime_backup.json"; a.click();
+        setShowMobileMenu(false);
       };
 
       return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col h-screen overflow-hidden transition-colors duration-300">
-          <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 sm:px-6 sm:py-4 flex justify-between items-center shadow z-10 shrink-0">
-            <div className="flex items-center gap-3"><div className="bg-slate-800 dark:bg-slate-950 p-2 rounded-lg text-white"><Briefcase size={24} /></div><div><h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white leading-tight">加班记录助手 Pro</h1><p className="text-xs text-slate-500 dark:text-slate-400">专业的工时管理工具</p></div></div>
-            <div className="flex gap-2 sm:gap-3 items-center">
-               <div className="hidden md:flex items-center bg-slate-100 dark:bg-slate-700 rounded-lg p-1 mr-2 border border-slate-200 dark:border-slate-600">
-                  <button onClick={() => adjustScale(-0.1)} className="p-1.5 px-2.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-all text-xs font-bold" title="减小字号">A-</button>
-                  <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-500 mx-1"></div>
-                  <button onClick={() => adjustScale(0.1)} className="p-1.5 px-2.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-all text-sm font-bold" title="增大字号">A+</button>
-               </div>
-               <button onClick={toggleTheme} className="p-2 sm:p-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors mr-1 sm:mr-2">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</button>
-               <label className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 cursor-pointer transition-colors"><Upload size={16} /><span>恢复</span><input type="file" accept=".json" onChange={handleImport} className="hidden" /></label>
-               <button onClick={handleJSONExport} className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"><Download size={16} /> 备份</button>
-               <button onClick={() => exportToExcel(records)} className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg shadow hover:shadow transition-all"><Download size={16} /><span className="hidden xs:inline">导出报表</span><span className="xs:hidden">导出</span></button>
+        <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-300`}>
+          
+          {/* ── HEADER ── */}
+          <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-700/60 px-4 py-3 flex justify-between items-center sticky top-0 z-30 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-xl shadow-lg shadow-blue-200 dark:shadow-blue-900/30">
+                <Briefcase size={20} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-base font-extrabold text-slate-800 dark:text-white leading-tight">加班记录助手</h1>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">专业工时管理</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Desktop actions */}
+              <div className="hidden md:flex items-center gap-2">
+                {/* Font scale controls */}
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  <button onClick={() => adjustScale(-0.1)} className="px-2.5 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="缩小字号">A-</button>
+                  <div className="w-px h-4 bg-slate-300 dark:bg-slate-600" />
+                  <button onClick={() => adjustScale(0.1)} className="px-2.5 py-1.5 text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="放大字号">A+</button>
+                </div>
+                <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition">
+                  <Upload size={13} /> 恢复
+                  <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+                </label>
+                <button onClick={handleJSONExport} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+                  <Download size={13} /> 备份
+                </button>
+                <button onClick={() => exportToExcel(records)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:from-emerald-600 hover:to-teal-600 shadow-sm transition">
+                  <Download size={13} /> 导出报表
+                </button>
+              </div>
+
+              <button onClick={toggleTheme} className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+
+              {/* Mobile menu button */}
+              <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="md:hidden p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <Menu size={18} />
+              </button>
             </div>
           </header>
-          <main className="flex-1 overflow-hidden">
-            <div className="h-full flex flex-col lg:flex-row gap-3 sm:gap-4 p-2 sm:p-4">
-              <div className="flex-1 lg:flex-[2] overflow-hidden flex flex-col min-h-[400px]"><Calendar currentDate={currentDate} onDateChange={setCurrentDate} records={records} onDayClick={handleDayClick} fontScale={calendarScale} /></div>
-              <div className="flex-1 lg:flex-1 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded p-3 sm:p-4 overflow-hidden shadow min-h-[500px]"><StatsPanel records={records} hourlyRate={hourlyRate} setHourlyRate={setHourlyRate} currentMonth={currentDate} /></div>
+
+          {/* Mobile dropdown menu */}
+          {showMobileMenu && (
+            <div className="md:hidden fixed inset-0 z-40" onClick={() => setShowMobileMenu(false)}>
+              <div className="absolute top-[60px] right-4 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden anim-scale-in" onClick={e => e.stopPropagation()}>
+                {/* Font scale row */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">字体大小</span>
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-xl overflow-hidden">
+                    <button onClick={() => adjustScale(-0.1)} className="px-3 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition">A-</button>
+                    <span className="text-xs text-slate-400 w-8 text-center">{Math.round(fontScale * 100)}%</span>
+                    <button onClick={() => adjustScale(0.1)} className="px-3 py-1.5 text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition">A+</button>
+                  </div>
+                </div>
+                <label className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition">
+                  <Upload size={16} className="text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">恢复备份</span>
+                  <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+                </label>
+                <div className="h-px bg-slate-100 dark:bg-slate-700" />
+                <button onClick={handleJSONExport} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                  <Download size={16} className="text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">备份数据</span>
+                </button>
+                <div className="h-px bg-slate-100 dark:bg-slate-700" />
+                <button onClick={() => { exportToExcel(records); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                  <Download size={16} className="text-emerald-500" />
+                  <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 font-semibold">导出 Excel 报表</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── MAIN CONTENT ── */}
+          {/* Desktop: side by side */}
+          <main className="flex-1 hidden md:flex gap-4 p-4 overflow-hidden" style={{height: 'calc(100vh - 61px)'}}>
+            <div className="flex-[3] overflow-hidden flex flex-col">
+              <Calendar currentDate={currentDate} onDateChange={setCurrentDate} records={records} onDayClick={handleDayClick} fontScale={fontScale} />
+            </div>
+            <div className="flex-[2] bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 overflow-y-auto shadow-sm">
+              <StatsPanel records={records} hourlyRate={hourlyRate} setHourlyRate={setHourlyRate} currentMonth={currentDate} />
             </div>
           </main>
-          <RecordModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveRecord} onDelete={handleDeleteRecord} selectedDate={selectedDate} existingRecord={editingRecord} />
+
+          {/* Mobile: tab view */}
+          <main className="flex-1 md:hidden overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-y-auto">
+              {mobileTab === 'calendar' ? (
+                <div className="p-3 h-full">
+                  <Calendar currentDate={currentDate} onDateChange={setCurrentDate} records={records} onDayClick={handleDayClick} fontScale={fontScale} />
+                </div>
+              ) : (
+                <div className="p-4">
+                  <StatsPanel records={records} hourlyRate={hourlyRate} setHourlyRate={setHourlyRate} currentMonth={currentDate} />
+                </div>
+              )}
+            </div>
+
+            {/* Mobile bottom tab bar */}
+            <div className="tab-bar bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-around px-2 pt-2 pb-safe safe-bottom shrink-0"
+              style={{paddingBottom: 'max(8px, env(safe-area-inset-bottom))'}}>
+              <button onClick={() => setMobileTab('calendar')}
+                className={`flex flex-col items-center gap-1 px-6 py-1.5 rounded-xl transition ${mobileTab==='calendar' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                <CalendarDays size={20} />
+                <span className="text-[10px] font-semibold">日历</span>
+              </button>
+
+              {/* Add button (center) */}
+              <button onClick={() => { setSelectedDate(new Date()); setEditingRecord(undefined); setIsModalOpen(true); }}
+                className="flex flex-col items-center -mt-6">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-blue-300 dark:shadow-blue-900/50">
+                  <Plus size={26} className="text-white" />
+                </div>
+                <span className="text-[10px] font-semibold text-slate-400 mt-1">记录</span>
+              </button>
+
+              <button onClick={() => setMobileTab('stats')}
+                className={`flex flex-col items-center gap-1 px-6 py-1.5 rounded-xl transition ${mobileTab==='stats' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                <BarChart2 size={20} />
+                <span className="text-[10px] font-semibold">统计</span>
+              </button>
+            </div>
+          </main>
+
+          <RecordModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSave} onDelete={handleDelete} selectedDate={selectedDate} existingRecord={editingRecord} />
         </div>
       );
     };
 
-    // --- MOUNT ---
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
