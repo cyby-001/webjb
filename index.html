@@ -22,7 +22,20 @@
   
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- 1. 修改：使用固定版本的Babel，避免自动更新导致的问题 -->
+  <script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
+  <script>
+    // 2. 新增：配置Babel的React预设
+    Babel.registerPreset('react-app', {
+      presets: [
+        Babel.availablePresets['react'],
+        [Babel.availablePresets['env'], {
+          targets: { esmodules: true },
+          modules: false
+        }]
+      ]
+    });
+  </script>
 
   <script type="importmap">
   {
@@ -53,7 +66,8 @@
 <body>
   <div id="root"></div>
 
-  <script type="text/babel" data-type="module">
+  <!-- 3. 修改：指定Babel预设为react-app，确保JSX正确编译 -->
+  <script type="text/babel" data-type="module" data-presets="react-app">
     import React, { useState, useEffect } from 'react';
     import ReactDOM from 'react-dom/client';
     import { 
@@ -107,7 +121,8 @@
       const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "考勤记录");
-      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       XLSX.writeFile(wb, `考勤记录_备份_${today}.xlsx`);
     };
 
@@ -221,7 +236,7 @@
         e.preventDefault();
         const record = {
           id: existingRecord?.id || crypto.randomUUID(),
-          date: selectedDate.toISOString().split('T')[0],
+          date: `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`,
           startTime, endTime, duration: Number(duration), category, type, note
         };
         onSave(record);
@@ -231,13 +246,13 @@
       if (!isOpen) return null;
 
       return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="bg-gray-100 dark:bg-slate-700 px-4 py-3 flex justify-between items-center border-b dark:border-slate-600">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white dark:bg-slate-800 rounded shadow-xl w-full max-w-[95%] sm:max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-gray-100 dark:bg-slate-700 px-3 py-2 sm:px-4 sm:py-3 flex justify-between items-center border-b dark:border-slate-600">
               <h2 className="text-lg font-bold text-gray-800 dark:text-white">{selectedDate.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}</h2>
               <button onClick={onClose}><X size={20} className="text-gray-500" /></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto">
               <div className="flex border rounded overflow-hidden">
                 <button type="button" onClick={() => setCategory(RecordCategory.OVERTIME)} className={`flex-1 py-2 text-sm font-medium ${category === RecordCategory.OVERTIME ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}>加班</button>
                 <button type="button" onClick={() => setCategory(RecordCategory.LEAVE)} className={`flex-1 py-2 text-sm font-medium ${category === RecordCategory.LEAVE ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}>请假</button>
@@ -262,7 +277,7 @@
               </div>
               <div className="flex items-center gap-3 pt-2">
                  {existingRecord && <button type="button" onClick={() => { onDelete(existingRecord.id); onClose(); }} className="p-2 border rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 size={20} /></button>}
-                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center gap-2"><Save size={18} /> 保存</button>
+                <button type="submit" className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-2 rounded flex items-center justify-center gap-2"><Save size={18} /> 保存</button>
               </div>
             </form>
           </div>
@@ -274,9 +289,13 @@
     const StatsPanel = ({ records, hourlyRate, setHourlyRate, currentMonth }) => {
       const [calcStart, setCalcStart] = useState(() => {
         const now = new Date();
-        return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        return `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-${String(firstDay.getDate()).padStart(2, '0')}`;
       });
-      const [calcEnd, setCalcEnd] = useState(() => new Date().toISOString().split('T')[0]);
+      const [calcEnd, setCalcEnd] = useState(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      });
       const [calcRate, setCalcRate] = useState(hourlyRate);
       const [calcResult, setCalcResult] = useState(null);
 
@@ -390,7 +409,7 @@
           </div>
 
           {/* Pie Chart */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm shrink-0">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow shrink-0">
              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2"><PieIcon size={16} /> 本月工时构成</h3>
              <div className="h-[180px] w-full relative">
                {pieData.length > 0 ? (
@@ -420,7 +439,7 @@
           </div>
 
           {/* Bar Chart */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm shrink-0">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow shrink-0">
              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2"><TrendingUp size={16} /> 近6个月工时趋势</h3>
              <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -438,13 +457,13 @@
           </div>
 
           {/* Calculator - Simplified */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm shrink-0">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow shrink-0">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3"><Calculator size={16} /> 加班费核算</h3>
             <div className="space-y-3">
                <div className="flex gap-2 items-center text-sm"><span className="w-16 text-slate-500">开始:</span><input type="date" value={calcStart} onChange={(e) => setCalcStart(e.target.value)} className="flex-1 border p-1.5 rounded bg-slate-50 dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-1 focus:ring-blue-500" /></div>
                <div className="flex gap-2 items-center text-sm"><span className="w-16 text-slate-500">结束:</span><input type="date" value={calcEnd} onChange={(e) => setCalcEnd(e.target.value)} className="flex-1 border p-1.5 rounded bg-slate-50 dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-1 focus:ring-blue-500" /></div>
                <div className="flex gap-2 items-center text-sm"><span className="w-16 text-slate-500">时薪:</span><input type="number" value={calcRate} onChange={(e) => setCalcRate(Number(e.target.value))} className="flex-1 border p-1.5 rounded bg-slate-50 dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-1 focus:ring-blue-500" /></div>
-               <button onClick={handleCalculate} className="w-full bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-sm font-medium transition-colors">开始计算</button>
+               <button onClick={handleCalculate} className="w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white py-2 rounded-lg text-sm font-medium transition-colors">开始计算</button>
             </div>
             
             {calcResult && (
@@ -505,7 +524,8 @@
       const blanks = Array.from({ length: firstDayOfMonth }, (_, i) => i);
 
       const getRecordForDay = (day) => {
-        const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toISOString().split('T')[0];
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         return records.find(r => r.date === dateStr);
       };
 
@@ -537,7 +557,7 @@
       };
 
       return (
-        <div className="bg-white dark:bg-slate-800 h-full flex flex-col border rounded shadow-sm">
+        <div className="bg-white dark:bg-slate-800 h-full flex flex-col border rounded shadow">
           {/* Header */}
           <div className="flex justify-between items-center p-4 border-b dark:border-slate-700">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white">{currentDate.toLocaleDateString('zh-CN', { month: 'long', year: 'numeric' })}</h2>
@@ -604,7 +624,38 @@
         const savedRate = localStorage.getItem('ot_rate');
         const savedTheme = localStorage.getItem('ot_theme');
         const savedScale = localStorage.getItem('ot_scale');
-        if (savedRecords) { try { setRecords(JSON.parse(savedRecords)); } catch (e) { console.error("Failed", e); } }
+        if (savedRecords) {
+          try {
+            const parsed = JSON.parse(savedRecords);
+            // 迁移旧记录中的日期格式（从UTC日期转换为本地日期）
+            const migrated = parsed.map(record => {
+              if (!record.date) return record;
+              // 旧记录中的日期可能是UTC日期（通过toISOString().split('T')[0]生成）
+              // 我们需要将其转换为本地日期
+              try {
+                // 检查是否为YYYY-MM-DD格式
+                const dateMatch = record.date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                if (dateMatch) {
+                  // 将字符串解析为UTC日期（添加'Z'表示UTC）
+                  const utcDate = new Date(record.date + 'T00:00:00Z');
+                  // 检查日期是否有效
+                  if (!isNaN(utcDate.getTime())) {
+                    // 获取本地日期组件
+                    const localDate = `${utcDate.getFullYear()}-${String(utcDate.getMonth() + 1).padStart(2, '0')}-${String(utcDate.getDate()).padStart(2, '0')}`;
+                    // 如果本地日期与原始日期不同，则更新
+                    if (localDate !== record.date) {
+                      return { ...record, date: localDate };
+                    }
+                  }
+                }
+              } catch (e) {
+                console.warn('日期迁移失败:', e);
+              }
+              return record;
+            });
+            setRecords(migrated);
+          } catch (e) { console.error("Failed", e); }
+        }
         if (savedRate) setHourlyRate(Number(savedRate));
         if (savedTheme === 'dark') { setIsDarkMode(true); document.documentElement.classList.add('dark'); }
         if (savedScale) setCalendarScale(Number(savedScale));
@@ -629,7 +680,8 @@
       };
 
       const handleDayClick = (date) => {
-        const existing = records.find(r => r.date === date.toISOString().split('T')[0]);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const existing = records.find(r => r.date === dateStr);
         setSelectedDate(date);
         setEditingRecord(existing);
         setIsModalOpen(true);
@@ -665,24 +717,24 @@
 
       return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col h-screen overflow-hidden transition-colors duration-300">
-          <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex justify-between items-center shadow-sm z-10 shrink-0">
-            <div className="flex items-center gap-3"><div className="bg-slate-800 dark:bg-slate-950 p-2 rounded-lg text-white"><Briefcase size={24} /></div><div><h1 className="text-xl font-bold text-slate-800 dark:text-white leading-tight">加班记录助手 Pro</h1><p className="text-xs text-slate-500 dark:text-slate-400">专业的工时管理工具</p></div></div>
-            <div className="flex gap-3 items-center">
+          <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 sm:px-6 sm:py-4 flex justify-between items-center shadow z-10 shrink-0">
+            <div className="flex items-center gap-3"><div className="bg-slate-800 dark:bg-slate-950 p-2 rounded-lg text-white"><Briefcase size={24} /></div><div><h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white leading-tight">加班记录助手 Pro</h1><p className="text-xs text-slate-500 dark:text-slate-400">专业的工时管理工具</p></div></div>
+            <div className="flex gap-2 sm:gap-3 items-center">
                <div className="hidden md:flex items-center bg-slate-100 dark:bg-slate-700 rounded-lg p-1 mr-2 border border-slate-200 dark:border-slate-600">
                   <button onClick={() => adjustScale(-0.1)} className="p-1.5 px-2.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-all text-xs font-bold" title="减小字号">A-</button>
                   <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-500 mx-1"></div>
                   <button onClick={() => adjustScale(0.1)} className="p-1.5 px-2.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-all text-sm font-bold" title="增大字号">A+</button>
                </div>
-               <button onClick={toggleTheme} className="p-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors mr-2">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</button>
+               <button onClick={toggleTheme} className="p-2 sm:p-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors mr-1 sm:mr-2">{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</button>
                <label className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 cursor-pointer transition-colors"><Upload size={16} /><span>恢复</span><input type="file" accept=".json" onChange={handleImport} className="hidden" /></label>
                <button onClick={handleJSONExport} className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"><Download size={16} /> 备份</button>
-               <button onClick={() => exportToExcel(records)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm hover:shadow transition-all"><Download size={16} /><span>导出报表</span></button>
+               <button onClick={() => exportToExcel(records)} className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg shadow hover:shadow transition-all"><Download size={16} /><span className="hidden xs:inline">导出报表</span><span className="xs:hidden">导出</span></button>
             </div>
           </header>
           <main className="flex-1 overflow-hidden">
-            <div className="h-full flex flex-col lg:flex-row gap-4 p-4">
-              <div className="flex-1 lg:flex-[2] overflow-hidden flex flex-col"><Calendar currentDate={currentDate} onDateChange={setCurrentDate} records={records} onDayClick={handleDayClick} fontScale={calendarScale} /></div>
-              <div className="flex-1 lg:flex-1 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded p-4 overflow-hidden shadow-sm"><StatsPanel records={records} hourlyRate={hourlyRate} setHourlyRate={setHourlyRate} currentMonth={currentDate} /></div>
+            <div className="h-full flex flex-col lg:flex-row gap-3 sm:gap-4 p-2 sm:p-4">
+              <div className="flex-1 lg:flex-[2] overflow-hidden flex flex-col min-h-[400px]"><Calendar currentDate={currentDate} onDateChange={setCurrentDate} records={records} onDayClick={handleDayClick} fontScale={calendarScale} /></div>
+              <div className="flex-1 lg:flex-1 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded p-3 sm:p-4 overflow-hidden shadow min-h-[500px]"><StatsPanel records={records} hourlyRate={hourlyRate} setHourlyRate={setHourlyRate} currentMonth={currentDate} /></div>
             </div>
           </main>
           <RecordModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveRecord} onDelete={handleDeleteRecord} selectedDate={selectedDate} existingRecord={editingRecord} />
