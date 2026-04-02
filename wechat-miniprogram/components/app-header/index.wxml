@@ -1,0 +1,36 @@
+<view class="hero" style="padding-top: {{navTop}}px;">
+  <view class="nav" style="height: {{navHeight}}px; padding-right: {{capsuleSpace}}px;">
+    <view class="brand">
+      <view class="brand-icon">
+        <view class="brand-handle"></view>
+        <view class="brand-body"></view>
+      </view>
+      <view class="brand-copy">
+        <view class="brand-title">{{title}}</view>
+        <view class="brand-sub">{{subtitle}}</view>
+      </view>
+    </view>
+    <view class="nav-actions">
+      <view class="icon-btn menu-btn solo" bindtap="onToggleMenu">
+        <image class="menu-entry-image" src="../../setting.png" mode="aspectFit" />
+      </view>
+    </view>
+  </view>
+</view>
+<view class="hero-spacer" style="height: {{heroHeight}}px;"></view>
+
+<view wx:if="{{showTopMenu}}" class="menu-mask" bindtap="onCloseMenu">
+  <view class="menu-card" catchtap="noop" style="top: {{menuTop}}px;">
+    <view class="menu-group-title">设置与帮助</view>
+    <view class="menu-item" bindtap="onOpenSettings">工时设置</view>
+    <view class="menu-item" bindtap="onGoPrivacy">隐私说明</view>
+    <view class="menu-item" bindtap="onGoAbout">关于</view>
+    <view class="menu-item" bindtap="onGoFeedback">意见反馈</view>
+    <view class="menu-divider"></view>
+    <view class="menu-group-title">数据管理</view>
+    <view class="menu-item" bindtap="onImportJSON">导入备份</view>
+    <view class="menu-item" bindtap="onBackupJSON">导出 JSON</view>
+    <view class="menu-item strong" bindtap="onExportTable">导出表格</view>
+    <view class="menu-item danger" bindtap="onClearAllRecords">清除全部记录</view>
+  </view>
+</view>

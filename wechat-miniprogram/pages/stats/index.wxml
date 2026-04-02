@@ -1,0 +1,232 @@
+<view class="container stats-page">
+  <app-header
+    navTop="{{navTop}}"
+    navHeight="{{navHeight}}"
+    heroHeight="{{heroHeight}}"
+    capsuleSpace="{{capsuleSpace}}"
+    menuTop="{{menuTop}}"
+    showTopMenu="{{showTopMenu}}"
+    bind:togglemenu="toggleTopMenu"
+    bind:closemenu="closeTopMenu"
+    bind:opensettings="openSettings"
+    bind:goprivacy="goPrivacyPage"
+    bind:goabout="goAboutPage"
+    bind:gofeedback="goFeedbackPage"
+    bind:importjson="importJSON"
+    bind:backupjson="backupJSON"
+    bind:exporttable="exportTable"
+    bind:clearallrecords="clearAllRecords"
+  />
+<view class="month-caption">{{monthLabel}}</view>
+
+  <view class="summary-row">
+    <view class="summary-card strong blue">
+      <view class="summary-head">本月加班总时长</view>
+      <view class="summary-value">{{monthSummary.otHours}}</view>
+      <view class="summary-foot">时长 / {{monthSummary.otCount}} 次</view>
+    </view>
+    <view class="summary-card strong purple">
+      <view class="summary-head">本月请假 / 调休</view>
+      <view class="summary-value">{{monthSummary.leaveHours}}</view>
+      <view class="summary-foot">时长 / {{monthSummary.leaveCount}} 次</view>
+    </view>
+  </view>
+
+  <view class="summary-row mini-row">
+    <view class="summary-card mini">
+      <view class="mini-head">今年累计加班</view>
+      <view class="mini-value">{{yearSummary.yearOtHours}}<text class="mini-unit">h</text></view>
+      <view class="mini-foot">{{yearSummary.yearOtDays}} 天 / {{currentYearLabel}}年</view>
+    </view>
+    <view class="summary-card mini">
+      <view class="mini-head">月均加班</view>
+      <view class="mini-value">{{avgMonthlyOt}}<text class="mini-unit">h</text></view>
+      <view class="mini-foot">按当前筛选范围计算</view>
+    </view>
+  </view>
+
+  <view class="card panel">
+    <view class="panel-title">本月加班类型占比</view>
+    <view class="donut-layout">
+      <view class="donut-wrap">
+        <view class="donut" style="{{donut.style}}">
+          <view class="donut-hole"></view>
+        </view>
+      </view>
+      <view class="donut-side">
+        <view class="donut-meta-item">
+          <view class="legend-item compact"><text class="dot blue"></text><text>平日加班</text></view>
+          <view class="donut-hours">{{donut.weekday}}h</view>
+        </view>
+        <view class="donut-meta-item">
+          <view class="legend-item compact"><text class="dot orange"></text><text>周末加班</text></view>
+          <view class="donut-hours">{{donut.weekend}}h</view>
+        </view>
+        <view class="donut-meta-item">
+          <view class="legend-item compact"><text class="dot red"></text><text>节假日加班</text></view>
+          <view class="donut-hours">{{donut.holiday}}h</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card panel">
+    <view class="panel-top">
+      <view class="panel-title">加班趋势</view>
+      <view class="range-row">
+        <view wx:for="{{rangeOptions}}" wx:key="key" class="range-pill {{activeRange === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setRange">{{item.label}}</view>
+      </view>
+    </view>
+    <view wx:if="{{trendMaxText}}" class="trend-note">加班峰值：{{trendMaxText}}</view>
+    <view class="chart-hint">{{chartHint}}</view>
+    <view class="bar-area">
+      <view class="bar-col" wx:for="{{trendBars}}" wx:key="month" data-label="{{item.shortLabel}}" data-ot="{{item.otHours}}" data-leave="{{item.leaveHours}}" bindtap="onTrendTap">
+        <view class="bars">
+          <view class="bar ot" style="height: {{item.otHeight}}rpx"></view>
+          <view class="bar leave" style="height: {{item.leaveHeight}}rpx"></view>
+        </view>
+        <view class="bar-label">{{item.shortLabel}}月</view>
+      </view>
+    </view>
+    <view class="legend-row trend-legend">
+      <view class="legend-item"><text class="dot blue"></text><text>加班</text></view>
+      <view class="legend-item"><text class="dot purple"></text><text>请假</text></view>
+    </view>
+  </view>
+
+  <view class="card panel">
+    <view class="panel-top detail-top">
+      <view class="panel-title">记录明细 <text class="detail-sub">(按最近范围筛选)</text></view>
+      <view class="detail-filters">
+        <view class="filter-pill {{detailFilter === 'all' ? 'active' : ''}}" data-filter="all" bindtap="setDetailFilter">全部</view>
+        <view class="filter-pill {{detailFilter === 'ot' ? 'active' : ''}}" data-filter="ot" bindtap="setDetailFilter">加班</view>
+        <view class="filter-pill {{detailFilter === 'leave' ? 'active' : ''}}" data-filter="leave" bindtap="setDetailFilter">请假</view>
+      </view>
+    </view>
+    <scroll-view wx:if="{{detailRecords.length}}" class="detail-scroll" scroll-y="true" enhanced="true" show-scrollbar="false">
+      <view class="detail-list">
+        <view class="detail-item" wx:for="{{detailRecords}}" wx:key="id">
+          <view class="detail-date">{{item.shortDate}}</view>
+          <view class="detail-main">
+            <view class="detail-line">
+              <view class="type-badge {{item.badgeClass}}">{{item.badgeText}}</view>
+              <view class="detail-hours">{{item.duration}}h</view>
+              <view wx:if="{{item.note}}" class="detail-note">{{item.note}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+    <view wx:else class="empty-text">当前范围内暂无记录</view>
+  </view>
+
+  <view class="card calc-shell">
+    <view class="calc-head">
+      <view class="panel-title">加班费估算</view>
+    </view>
+    <view class="calc-body">
+      <view class="calc-tip">按时间范围和时薪估算加班费用，请以实际工资规则为准。</view>
+      <view class="form-row">
+        <view class="f-label">开始日期</view>
+        <picker mode="date" value="{{calcStart}}" data-field="calcStart" bindchange="onCalcDateChange">
+          <view class="f-input">{{calcStart}}</view>
+        </picker>
+      </view>
+      <view class="form-row">
+        <view class="f-label">结束日期</view>
+        <picker mode="date" value="{{calcEnd}}" data-field="calcEnd" bindchange="onCalcDateChange">
+          <view class="f-input">{{calcEnd}}</view>
+        </picker>
+      </view>
+      <view class="form-row">
+        <view class="f-label">时薪</view>
+        <input class="f-input" type="digit" value="{{hourlyRate}}" bindinput="onRateInput" />
+      </view>
+      <view class="calc-btn" bindtap="doEstimate">开始估算</view>
+      <view class="result-panel">
+        <view class="result-total">预计金额 ￥{{calcResult.amount}}</view>
+        <view class="result-item">平日加班 x1.5：{{calcResult.weekday}}h</view>
+        <view class="result-item">周末加班 x2.0：{{calcResult.weekend}}h</view>
+        <view class="result-item">节假日加班 x3.0：{{calcResult.holiday}}h</view>
+        <view class="result-item leave">请假时长：{{calcResult.leave}}h</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="bottom-bar">
+    <view class="tab-btn" bindtap="goCalendar">
+      <view class="tab-icon calendar-icon"></view>
+      <view class="tab-label">日历</view>
+    </view>
+    <view class="add-wrap" bindtap="quickAdd">
+      <view class="add-btn">+</view>
+      <view class="add-label">记录</view>
+    </view>
+    <view class="tab-btn active">
+      <view class="tab-icon stats-icon">
+        <view class="stats-col stats-a"></view>
+        <view class="stats-col stats-b"></view>
+        <view class="stats-col stats-c"></view>
+      </view>
+      <view class="tab-label">统计</view>
+    </view>
+  </view>
+
+  <view wx:if="{{showSettingsSheet}}" class="sheet-mask" bindtap="closeSettingsSheet">
+    <view class="settings-sheet" catchtap="noop">
+      <view class="sheet-grabber"></view>
+      <view class="settings-headline">
+        <view class="settings-title-wrap">
+          <image class="settings-title-icon" src="../../setting.png" mode="aspectFit" />
+          <view class="settings-title-text">数据设置</view>
+        </view>
+        <view class="sheet-close dark" bindtap="closeSettingsSheet">x</view>
+      </view>
+      <view class="settings-body-sheet">
+        <view class="settings-label">加班默认开始</view>
+        <picker mode="time" value="{{settingOtDefaultStart}}" data-field="settingOtDefaultStart" bindchange="onSettingsTimeChange">
+          <view class="field-input">{{settingOtDefaultStart}}</view>
+        </picker>
+        <view class="settings-label">加班默认结束</view>
+        <picker mode="time" value="{{settingOtDefaultEnd}}" data-field="settingOtDefaultEnd" bindchange="onSettingsTimeChange">
+          <view class="field-input">{{settingOtDefaultEnd}}</view>
+        </picker>
+        <view class="settings-label gap-top">请假默认时间</view>
+        <view class="field-sub">开始时间</view>
+        <picker mode="time" value="{{settingLeaveDefaultStart}}" data-field="settingLeaveDefaultStart" bindchange="onSettingsTimeChange">
+          <view class="field-input">{{settingLeaveDefaultStart}}</view>
+        </picker>
+        <view class="field-sub">结束时间</view>
+        <picker mode="time" value="{{settingLeaveDefaultEnd}}" data-field="settingLeaveDefaultEnd" bindchange="onSettingsTimeChange">
+          <view class="field-input">{{settingLeaveDefaultEnd}}</view>
+        </picker>
+        <view class="settings-row-top">
+          <view class="settings-label no-margin">休息时段(计算工时时自动扣除)</view>
+          <view class="sheet-add-btn" bindtap="addSettingsRest">+ 新增时段</view>
+        </view>
+        <view wx:for="{{settingRestPeriods}}" wx:key="id" class="sheet-rest-row">
+          <input class="sheet-rest-name" value="{{item.label}}" data-index="{{index}}" data-field="label" bindinput="onSettingsRestFieldInput" />
+          <view class="sheet-rest-time-group">
+            <picker class="sheet-rest-picker" mode="time" value="{{item.start}}" data-index="{{index}}" data-field="start" bindchange="onSettingsRestTimeChange">
+              <view class="sheet-rest-time">{{item.start}}</view>
+            </picker>
+            <view class="sheet-rest-sep">-</view>
+            <picker class="sheet-rest-picker" mode="time" value="{{item.end}}" data-index="{{index}}" data-field="end" bindchange="onSettingsRestTimeChange">
+              <view class="sheet-rest-time">{{item.end}}</view>
+            </picker>
+          </view>
+          <view class="sheet-trash-btn" data-index="{{index}}" bindtap="removeSettingsRest">
+            <view class="trash-icon">
+              <view class="trash-lid"></view>
+              <view class="trash-box">
+                <view class="trash-line"></view>
+                <view class="trash-line"></view>
+              </view>
+            </view>
+          </view>
+        </view>
+        <button class="btn-primary settings-save" bindtap="saveSettingsSheet">保存设置</button>
+      </view>
+    </view>
+  </view>
+</view>

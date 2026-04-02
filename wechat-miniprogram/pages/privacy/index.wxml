@@ -1,0 +1,27 @@
+<view class="info-page privacy-page">
+  <view class="hero-card">
+    <view class="hero-title">隐私说明</view>
+    <view class="hero-sub">这是一款用于个人工时管理的小程序，数据处理以本地存储和你的主动操作为主。</view>
+  </view>
+
+  <view class="info-card">
+    <view class="section-title">数据保存</view>
+    <view class="info-item">
+      <view class="item-title">本地记录</view>
+      <view class="item-desc">加班记录、请假记录、默认时间和时薪会保存在当前设备的小程序本地缓存中。</view>
+    </view>
+    <view class="info-item">
+      <view class="item-title">云端同步</view>
+      <view class="item-desc">启用云同步后，会使用当前微信号对应的小程序身份进行同步，方便换机恢复个人记录。</view>
+    </view>
+    <view class="info-item">
+      <view class="item-title">文件导入导出</view>
+      <view class="item-desc">只有当你主动执行导入、导出或备份时，小程序才会读写对应文件。</view>
+    </view>
+  </view>
+
+  <view class="info-card">
+    <view class="section-title">使用说明</view>
+    <view class="plain-text">本工具不会主动对外分享你的记录内容。请妥善保管你导出的备份文件，并在公共设备上谨慎使用导入导出功能。</view>
+  </view>
+</view>

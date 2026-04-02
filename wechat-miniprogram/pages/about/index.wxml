@@ -1,0 +1,20 @@
+<view class="info-page about-page">
+  <view class="hero-card brand-hero">
+    <view class="brand-badge">加班记录助手 Pro</view>
+    <view class="hero-title">专业工时管理</view>
+    <view class="hero-sub">帮助你记录加班与请假、查看统计、估算加班费，并支持备份导入与换机同步。</view>
+  </view>
+
+  <view class="info-card">
+    <view class="section-title">核心功能</view>
+    <view class="feature-item">记录平日、周末、节假日加班和请假</view>
+    <view class="feature-item">按月份查看统计和趋势</view>
+    <view class="feature-item">按时间范围估算加班费</view>
+    <view class="feature-item">支持导入、导出、备份与云同步</view>
+  </view>
+
+  <view class="info-card">
+    <view class="section-title">说明</view>
+    <view class="plain-text">当前版本聚焦个人工时记录与自助管理，适合日常登记、月度汇总和换机备份恢复。</view>
+  </view>
+</view>

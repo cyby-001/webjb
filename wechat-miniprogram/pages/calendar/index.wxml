@@ -1,0 +1,172 @@
+<view class="container calendar-page">
+  <app-header
+    navTop="{{navTop}}"
+    navHeight="{{navHeight}}"
+    heroHeight="{{heroHeight}}"
+    capsuleSpace="{{capsuleSpace}}"
+    menuTop="{{menuTop}}"
+    showTopMenu="{{showTopMenu}}"
+    bind:togglemenu="toggleTopMenu"
+    bind:closemenu="closeTopMenu"
+    bind:opensettings="openSettings"
+    bind:goprivacy="goPrivacyPage"
+    bind:goabout="goAboutPage"
+    bind:gofeedback="goFeedbackPage"
+    bind:importjson="importJSON"
+    bind:backupjson="backupJSON"
+    bind:exporttable="exportTable"
+    bind:clearallrecords="clearAllRecords"
+  />
+<view class="card calendar-card">
+    <view class="calendar-head">
+      <view class="month-btn" bindtap="prevMonth"><view class="month-arrow left"></view></view>
+      <view class="month-title">{{monthTitle}}</view>
+      <view class="month-btn" bindtap="nextMonth"><view class="month-arrow right"></view></view>
+    </view>
+    <view class="week-row">
+      <text wx:for="{{weekShort}}" wx:key="*this" class="week-item">{{item}}</text>
+    </view>
+    <view class="days-grid">
+      <block wx:for="{{monthDays}}" wx:key="key">
+        <view wx:if="{{!item.empty}}" class="day-cell {{item.isToday ? 'today' : ''}}" data-date="{{item.dateStr}}" bindtap="onTapDay">
+          <view class="day-number {{item.isWeekend ? 'weekend' : ''}}">{{item.day}}</view>
+          <view class="day-lunar">{{item.lunarText}}</view>
+          <view wx:if="{{item.record}}" class="day-badge {{item.tagClass}}">{{item.record.duration}}h</view>
+          <view wx:if="{{item.notePreview}}" class="day-note">{{item.notePreview}}</view>
+          <view wx:if="{{item.isToday && !item.record}}" class="today-dot"></view>
+        </view>
+        <view wx:else class="day-cell empty"></view>
+      </block>
+    </view>
+    <view class="calendar-foot">{{lunarInfo}}</view>
+  </view>
+
+  <view class="bottom-bar">
+    <view class="tab-btn active">
+      <view class="tab-icon calendar-icon"></view>
+      <view class="tab-label">日历</view>
+    </view>
+    <view class="add-wrap" bindtap="quickAdd">
+      <view class="add-btn">+</view>
+      <view class="add-label">记录</view>
+    </view>
+    <view class="tab-btn" bindtap="goStats">
+      <view class="tab-icon stats-icon">
+        <view class="stats-col stats-a"></view>
+        <view class="stats-col stats-b"></view>
+        <view class="stats-col stats-c"></view>
+      </view>
+      <view class="tab-label">统计</view>
+    </view>
+  </view>
+
+  <view wx:if="{{showEditor}}" class="sheet-mask" bindtap="closeEditor">
+    <view class="sheet-panel" catchtap="noop">
+      <view class="sheet-grabber"></view>
+      <view class="sheet-top {{form.category === '请假' ? 'leave' : 'ot'}}">
+        <view>
+          <view class="sheet-caption">记录详情</view>
+          <view class="sheet-title">{{selectedDateText}}</view>
+        </view>
+        <view class="sheet-close" bindtap="closeEditor">x</view>
+      </view>
+      <view class="sheet-body">
+        <view class="segment">
+          <view class="segment-item {{form.category === '加班' ? 'active' : ''}}" data-category="加班" bindtap="switchCategory">加班</view>
+          <view class="segment-item {{form.category === '请假' ? 'active' : ''}}" data-category="请假" bindtap="switchCategory">请假</view>
+        </view>
+        <view class="field-block">
+          <view class="field-label">开始时间</view>
+          <picker mode="time" value="{{form.startTime}}" data-field="startTime" bindchange="onTimeChange">
+            <view class="field-input">{{form.startTime}}</view>
+          </picker>
+        </view>
+        <view class="field-block">
+          <view class="field-label">结束时间</view>
+          <picker mode="time" value="{{form.endTime}}" data-field="endTime" bindchange="onTimeChange">
+            <view class="field-input">{{form.endTime}}</view>
+          </picker>
+        </view>
+        <view class="field-block">
+          <view class="field-label">工时 / 时长</view>
+          <view class="duration-row">
+            <input class="field-input flex-fill" type="digit" value="{{form.duration}}" bindinput="onDurationInput" />
+            <view class="duration-chip">{{form.duration}}h</view>
+          </view>
+        </view>
+        <view class="field-block">
+          <view class="field-label">类型</view>
+          <picker mode="selector" range="{{currentTypeOptions}}" bindchange="onTypeChange">
+            <view class="field-input">{{form.type}}</view>
+          </picker>
+        </view>
+        <view class="field-block">
+          <view class="field-label">备注</view>
+          <textarea class="note-area" value="{{form.note}}" maxlength="100" bindinput="onNoteInput" placeholder="写点备注..." />
+        </view>
+        <view class="sheet-actions">
+          <button wx:if="{{editingRecordId}}" class="btn-danger delete-btn" bindtap="deleteRecord">删除记录</button>
+          <button class="btn-primary save-btn {{form.category === '请假' ? 'leave-save' : ''}}" bindtap="saveRecord">保存记录</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showSettingsSheet}}" class="sheet-mask" bindtap="closeSettingsSheet">
+    <view class="settings-sheet" catchtap="noop">
+      <view class="sheet-grabber"></view>
+      <view class="settings-headline">
+        <view class="settings-title-wrap">
+          <image class="settings-title-icon" src="../../setting.png" mode="aspectFit" />
+          <view class="settings-title-text">数据设置</view>
+        </view>
+        <view class="sheet-close dark" bindtap="closeSettingsSheet">x</view>
+      </view>
+      <view class="settings-body-sheet">
+        <view class="settings-label">加班默认开始</view>
+        <picker mode="time" value="{{settingOtDefaultStart}}" data-field="settingOtDefaultStart" bindchange="onSettingsTimeChange">
+          <view class="field-input">{{settingOtDefaultStart}}</view>
+        </picker>
+        <view class="settings-label">加班默认结束</view>
+        <picker mode="time" value="{{settingOtDefaultEnd}}" data-field="settingOtDefaultEnd" bindchange="onSettingsTimeChange">
+          <view class="field-input">{{settingOtDefaultEnd}}</view>
+        </picker>
+        <view class="settings-label gap-top">请假默认时间</view>
+        <view class="field-sub">开始时间</view>
+        <picker mode="time" value="{{settingLeaveDefaultStart}}" data-field="settingLeaveDefaultStart" bindchange="onSettingsTimeChange">
+          <view class="field-input">{{settingLeaveDefaultStart}}</view>
+        </picker>
+        <view class="field-sub">结束时间</view>
+        <picker mode="time" value="{{settingLeaveDefaultEnd}}" data-field="settingLeaveDefaultEnd" bindchange="onSettingsTimeChange">
+          <view class="field-input">{{settingLeaveDefaultEnd}}</view>
+        </picker>
+        <view class="settings-row-top">
+          <view class="settings-label no-margin">休息时段(计算工时时自动扣除)</view>
+          <view class="sheet-add-btn" bindtap="addSettingsRest">+ 新增时段</view>
+        </view>
+        <view wx:for="{{settingRestPeriods}}" wx:key="id" class="sheet-rest-row">
+          <input class="sheet-rest-name" value="{{item.label}}" data-index="{{index}}" data-field="label" bindinput="onSettingsRestFieldInput" />
+          <view class="sheet-rest-time-group">
+            <picker class="sheet-rest-picker" mode="time" value="{{item.start}}" data-index="{{index}}" data-field="start" bindchange="onSettingsRestTimeChange">
+              <view class="sheet-rest-time">{{item.start}}</view>
+            </picker>
+            <view class="sheet-rest-sep">-</view>
+            <picker class="sheet-rest-picker" mode="time" value="{{item.end}}" data-index="{{index}}" data-field="end" bindchange="onSettingsRestTimeChange">
+              <view class="sheet-rest-time">{{item.end}}</view>
+            </picker>
+          </view>
+          <view class="sheet-trash-btn" data-index="{{index}}" bindtap="removeSettingsRest">
+            <view class="trash-icon">
+              <view class="trash-lid"></view>
+              <view class="trash-box">
+                <view class="trash-line"></view>
+                <view class="trash-line"></view>
+              </view>
+            </view>
+          </view>
+        </view>
+        <button class="btn-primary settings-save" bindtap="saveSettingsSheet">保存设置</button>
+      </view>
+    </view>
+  </view>
+</view>

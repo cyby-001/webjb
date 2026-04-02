@@ -1,0 +1,19 @@
+{
+  "pages": [
+    "pages/calendar/index",
+    "pages/stats/index",
+    "pages/privacy/index",
+    "pages/about/index",
+    "pages/feedback/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "加班记录助手",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundTextStyle": "light",
+    "backgroundColor": "#f7f8fa"
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

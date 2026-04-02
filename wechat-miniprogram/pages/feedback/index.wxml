@@ -1,0 +1,30 @@
+<view class="info-page feedback-page">
+  <view class="hero-card">
+    <view class="hero-title">意见反馈</view>
+    <view class="hero-sub">这里既可以反馈使用中遇到的问题，也可以告诉我们你希望新增什么功能。</view>
+  </view>
+
+  <view class="info-card">
+    <view class="section-title">问题反馈</view>
+    <view class="card-desc">适合反馈报错、页面异常、显示问题、数据不对、交互不顺手等情况。</view>
+    <view class="tip-item">1. 尽量写清出问题的页面和操作步骤</view>
+    <view class="tip-item">2. 建议附上设备型号、微信版本和截图</view>
+    <view class="tip-item">3. 如果涉及数据，建议先导出备份</view>
+    <view class="copy-btn" bindtap="copyIssueTemplate">复制问题反馈模板</view>
+  </view>
+
+  <view class="info-card feature-card">
+    <view class="section-title">功能建议</view>
+    <view class="card-desc">如果你希望新增某个功能，也可以在这里反馈，我们会更容易理解你的真实需求。</view>
+    <view class="feature-tags">
+      <view class="feature-tag">记录效率</view>
+      <view class="feature-tag">统计分析</view>
+      <view class="feature-tag">同步备份</view>
+      <view class="feature-tag">提醒通知</view>
+    </view>
+    <view class="tip-item">1. 说明你希望新增什么功能</view>
+    <view class="tip-item">2. 说明你会在什么场景下用到它</view>
+    <view class="tip-item">3. 如果有理想的操作方式，也可以一起写上</view>
+    <view class="copy-btn alt" bindtap="copyFeatureTemplate">复制功能建议模板</view>
+  </view>
+</view>

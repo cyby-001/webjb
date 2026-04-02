@@ -1,0 +1,59 @@
+.info-page {
+  min-height: 100vh;
+  padding: 24rpx 20rpx 40rpx;
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
+}
+
+.hero-card,
+.info-card {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 28rpx;
+  border: 1rpx solid #e8edf5;
+  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.05);
+}
+
+.hero-card {
+  padding: 26rpx 24rpx;
+}
+
+.hero-title {
+  color: #0f172a;
+  font-size: 36rpx;
+  font-weight: 800;
+}
+
+.hero-sub {
+  margin-top: 10rpx;
+  color: #64748b;
+  font-size: 25rpx;
+  line-height: 1.7;
+}
+
+.info-card {
+  margin-top: 18rpx;
+  padding: 24rpx;
+}
+
+.section-title {
+  color: #1e293b;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.info-item {
+  padding-top: 18rpx;
+}
+
+.item-title {
+  color: #334155;
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.item-desc,
+.plain-text {
+  margin-top: 8rpx;
+  color: #64748b;
+  font-size: 24rpx;
+  line-height: 1.8;
+}
