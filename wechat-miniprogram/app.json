@@ -1,7 +1,6 @@
 {
   "pages": [
     "pages/calendar/index",
-    "pages/stats/index",
     "pages/privacy/index",
     "pages/about/index",
     "pages/feedback/index"
@@ -16,4 +15,5 @@
   "style": "v2",
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
+  
 }

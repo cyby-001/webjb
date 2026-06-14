@@ -55,9 +55,7 @@ function getMonthMeta(baseDate) {
 }
 
 module.exports = {
-  toMinutes,
   formatDate,
-  monthKey,
   calcDuration,
   getMonthMeta
 };

@@ -18,8 +18,20 @@ function payrollEstimate(records, startDate, endDate, hourlyRate) {
     else weekday += h;
   });
 
-  const weighted = weekday * 1.5 + weekend * 2 + holiday * 3;
-  const netHours = Math.max(0, weighted - leave);
+  let remainingLeave = leave;
+
+  const deduct = (hours) => {
+    if (remainingLeave <= 0) return hours;
+    const deduction = Math.min(hours, remainingLeave);
+    remainingLeave -= deduction;
+    return hours - deduction;
+  };
+
+  const payableWeekday = deduct(weekday);
+  const payableWeekend = deduct(weekend);
+  const payableHoliday = deduct(holiday);
+  const settlementHours = payableWeekday + payableWeekend + payableHoliday;
+  const weighted = payableWeekday * 1.5 + payableWeekend * 2 + payableHoliday * 3;
 
   return {
     weekday: Number(weekday.toFixed(1)),
@@ -27,7 +39,8 @@ function payrollEstimate(records, startDate, endDate, hourlyRate) {
     holiday: Number(holiday.toFixed(1)),
     leave: Number(leave.toFixed(1)),
     weighted: Number(weighted.toFixed(1)),
-    amount: Number((netHours * Number(hourlyRate || 0)).toFixed(2))
+    settlementHours: Number(settlementHours.toFixed(1)),
+    amount: Number((weighted * Number(hourlyRate || 0)).toFixed(2))
   };
 }
 

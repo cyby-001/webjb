@@ -16,18 +16,35 @@ function cloneRestPeriods(restPeriods) {
   }));
 }
 
+function cloneImages(images) {
+  if (!Array.isArray(images)) return [];
+  return images.filter((item) => typeof item === 'string' && item).slice(0, 3);
+}
+
 function cloneRecords(records) {
   if (!Array.isArray(records)) return [];
-  return records.map((item) => ({
-    id: item.id,
-    date: item.date,
-    category: item.category,
-    type: item.type,
-    startTime: item.startTime,
-    endTime: item.endTime,
-    duration: Number(item.duration || 0),
-    note: item.note || ''
-  }));
+  return records.map((item) => {
+    // Accept old field names for migration: images / cloudImages / localImages
+    const images = item.images || item.cloudImages || item.localImages || [];
+    const voiceId = item.voiceId || item.cloudVoiceId || '';
+    return {
+      id: item.id,
+      date: item.date,
+      category: item.category,
+      type: item.type,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      duration: Number(item.duration || 0),
+      note: item.note || '',
+      images: cloneImages(images),
+      voiceId: typeof voiceId === 'string' ? voiceId : '',
+      voiceDuration: Number(item.voiceDuration) > 0 ? Number(item.voiceDuration) : 0,
+      // Preserve runtime display cache across data loads
+      _resolvedUrls: Array.isArray(item._resolvedUrls) ? item._resolvedUrls.slice(0, 3) : [],
+      _resolvedAt: typeof item._resolvedAt === 'number' ? item._resolvedAt : 0,
+      _voiceLocalPath: typeof item._voiceLocalPath === 'string' ? item._voiceLocalPath : ''
+    };
+  });
 }
 
 function buildSettings(source) {
@@ -138,13 +155,20 @@ function normalizeCloudProfile(doc) {
   };
 }
 
+function stripRuntimeFields(records) {
+  return records.map((item) => {
+    const { _resolvedUrls, _voiceLocalPath, _resolvedAt, ...clean } = item;
+    return clean;
+  });
+}
+
 async function createCloudProfile(state) {
   const db = getCloudDatabase();
   if (!db) throw new Error('cloud-unavailable');
 
   const now = Date.now();
   const payload = {
-    records: cloneRecords(state.records),
+    records: stripRuntimeFields(cloneRecords(state.records)),
     settings: buildSettings(state.settings),
     hourlyRate: normalizeRate(state.hourlyRate),
     updatedAt: normalizeTimestamp(state.updatedAt) || now,
@@ -164,7 +188,7 @@ async function updateCloudProfile(docId, state) {
 
   await db.collection(CLOUD_COLLECTION).doc(docId).update({
     data: {
-      records: cloneRecords(state.records),
+      records: stripRuntimeFields(cloneRecords(state.records)),
       settings: buildSettings(state.settings),
       hourlyRate: normalizeRate(state.hourlyRate),
       updatedAt: normalizeTimestamp(state.updatedAt) || Date.now()
@@ -193,6 +217,18 @@ async function pushStateToCloud(state) {
   }
 }
 
+function mergeRuntimeCache(cloudRecords, localRecords) {
+  return cloudRecords.map((item) => {
+    const local = localRecords.find((r) => r.id === item.id || r.date === item.date);
+    if (local) {
+      item._resolvedUrls = local._resolvedUrls || [];
+      item._resolvedAt = local._resolvedAt;
+      item._voiceLocalPath = local._voiceLocalPath || '';
+    }
+    return item;
+  });
+}
+
 async function syncUserData() {
   const localState = getLocalState();
   const db = getCloudDatabase();
@@ -212,6 +248,7 @@ async function syncUserData() {
     }
 
     if (cloudState.updatedAt > localState.updatedAt) {
+      cloudState.records = mergeRuntimeCache(cloudState.records, localState.records);
       return writeLocalState(cloudState);
     }
 
@@ -220,6 +257,7 @@ async function syncUserData() {
       return localState;
     }
 
+    cloudState.records = mergeRuntimeCache(cloudState.records, localState.records);
     return writeLocalState(cloudState);
   } catch (error) {
     console.error('[cloud syncUserData failed]', error);

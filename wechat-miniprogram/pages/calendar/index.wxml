@@ -1,4 +1,4 @@
-<view class="container calendar-page">
+<view class="container {{currentTab === 'calendar' ? 'calendar-page' : 'stats-page'}}">
   <app-header
     navTop="{{navTop}}"
     navHeight="{{navHeight}}"
@@ -17,7 +17,10 @@
     bind:exporttable="exportTable"
     bind:clearallrecords="clearAllRecords"
   />
-<view class="card calendar-card">
+
+  <!-- ====== 日历视图 ====== -->
+  <block wx:if="{{currentTab === 'calendar'}}">
+  <view class="card calendar-card">
     <view class="calendar-head">
       <view class="month-btn" bindtap="prevMonth"><view class="month-arrow left"></view></view>
       <view class="month-title">{{monthTitle}}</view>
@@ -28,7 +31,7 @@
     </view>
     <view class="days-grid">
       <block wx:for="{{monthDays}}" wx:key="key">
-        <view wx:if="{{!item.empty}}" class="day-cell {{item.isToday ? 'today' : ''}}" data-date="{{item.dateStr}}" bindtap="onTapDay">
+        <view wx:if="{{!item.empty}}" class="day-cell {{item.isToday ? 'today' : ''}} {{item.selected ? 'selected' : ''}}" data-date="{{item.dateStr}}" bindtap="onTapDay">
           <view class="day-number {{item.isWeekend ? 'weekend' : ''}}">{{item.day}}</view>
           <view class="day-lunar">{{item.lunarText}}</view>
           <view wx:if="{{item.record}}" class="day-badge {{item.tagClass}}">{{item.record.duration}}h</view>
@@ -41,8 +44,185 @@
     <view class="calendar-foot">{{lunarInfo}}</view>
   </view>
 
+  <view class="card selected-detail-card">
+    <view class="selected-detail-head">
+      <view>
+        <view class="selected-detail-caption">每日记录</view>
+        <view class="selected-detail-title">{{selectedDateText}}</view>
+      </view>
+      <view wx:if="{{selectedDayRecord}}" class="selected-detail-badge {{selectedDayRecord.category === '请假' ? 'leave' : 'ot'}}">{{selectedDayRecord.duration}}h</view>
+    </view>
+    <view wx:if="{{selectedDayRecord && selectedDayRecord.note}}" class="selected-note">{{selectedDayRecord.note}}</view>
+    <view wx:else class="selected-empty">当天暂无记录</view>
+    <view wx:if="{{(selectedDayRecord && selectedDayRecord.images && selectedDayRecord.images.length) || (selectedDayRecord && selectedDayRecord.voiceDuration)}}" class="selected-image-row">
+      <image wx:for="{{selectedDayRecord._resolvedUrls}}" wx:key="*this" class="selected-image" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="previewSelectedDayImage" />
+      <view wx:if="{{selectedDayRecord.voiceDuration}}" class="voice-bubble-sm" bindtap="toggleCardVoicePlay">
+        <view class="voice-bubble-dur">{{selectedDayRecord.voiceDuration}}"</view>
+        <view class="voice-waves {{isCardVoicePlaying ? 'playing' : ''}}">
+          <view class="wave-bar"></view>
+          <view class="wave-bar"></view>
+          <view class="wave-bar"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+  </block>
+
+  <!-- ====== 统计视图 ====== -->
+  <block wx:if="{{currentTab === 'stats'}}">
+  <view class="month-switch">
+    <view class="month-nav-btn" bindtap="prevStatsMonth"><view class="month-nav-arrow left"></view></view>
+    <view class="month-caption">{{monthLabel}}</view>
+    <view class="month-nav-btn" bindtap="nextStatsMonth"><view class="month-nav-arrow right"></view></view>
+  </view>
+
+  <view class="summary-row">
+    <view class="summary-card strong blue">
+      <view class="summary-head">本月加班总时长</view>
+      <view class="summary-value">{{monthSummary.otHours}}</view>
+      <view class="summary-foot">时长 / {{monthSummary.otCount}} 次</view>
+    </view>
+    <view class="summary-card strong purple">
+      <view class="summary-head">本月请假 / 调休</view>
+      <view class="summary-value">{{monthSummary.leaveHours}}</view>
+      <view class="summary-foot">时长 / {{monthSummary.leaveCount}} 次</view>
+    </view>
+  </view>
+
+  <view class="summary-row mini-row">
+    <view class="summary-card mini">
+      <view class="mini-head">今年累计加班</view>
+      <view class="mini-value">{{yearSummary.yearOtHours}}<text class="mini-unit">h</text></view>
+      <view class="mini-foot">{{yearSummary.yearOtDays}} 天 / {{currentYearLabel}}年</view>
+    </view>
+    <view class="summary-card mini">
+      <view class="mini-head">月均加班</view>
+      <view class="mini-value">{{avgMonthlyOt}}<text class="mini-unit">h</text></view>
+      <view class="mini-foot">按当前筛选范围计算</view>
+    </view>
+  </view>
+
+  <view class="summary-card total-card">
+    <view>
+      <view class="total-head">累计加班总时长</view>
+      <view class="total-foot">累计 {{allTimeSummary.totalOtCount}} 次加班记录</view>
+    </view>
+    <view class="total-value">{{allTimeSummary.totalOtHours}}<text class="total-unit">h</text></view>
+  </view>
+
+  <view class="card panel">
+    <view class="panel-title">本月加班类型占比</view>
+    <view class="donut-layout">
+      <view class="donut-wrap">
+        <view class="donut" style="{{donut.style}}">
+          <view class="donut-hole"></view>
+        </view>
+      </view>
+      <view class="donut-side">
+        <view class="donut-meta-item">
+          <view class="legend-item compact"><text class="dot blue"></text><text>平日加班</text></view>
+          <view class="donut-hours">{{donut.weekday}}h</view>
+        </view>
+        <view class="donut-meta-item">
+          <view class="legend-item compact"><text class="dot orange"></text><text>周末加班</text></view>
+          <view class="donut-hours">{{donut.weekend}}h</view>
+        </view>
+        <view class="donut-meta-item">
+          <view class="legend-item compact"><text class="dot red"></text><text>节假日加班</text></view>
+          <view class="donut-hours">{{donut.holiday}}h</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card panel">
+    <view class="panel-top">
+      <view class="panel-title">加班趋势</view>
+      <view class="range-row">
+        <view wx:for="{{rangeOptions}}" wx:key="key" class="range-pill {{activeRange === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setRange">{{item.label}}</view>
+      </view>
+    </view>
+    <view wx:if="{{trendMaxText}}" class="trend-note">加班峰值：{{trendMaxText}}</view>
+    <view class="chart-hint">{{chartHint}}</view>
+    <view class="bar-area">
+      <view class="bar-col" wx:for="{{trendBars}}" wx:key="month" data-label="{{item.shortLabel}}" data-ot="{{item.otHours}}" data-leave="{{item.leaveHours}}" bindtap="onTrendTap">
+        <view class="bars">
+          <view class="bar ot" style="height: {{item.otHeight}}rpx"></view>
+          <view class="bar leave" style="height: {{item.leaveHeight}}rpx"></view>
+        </view>
+        <view class="bar-label">{{item.shortLabel}}月</view>
+      </view>
+    </view>
+    <view class="legend-row trend-legend">
+      <view class="legend-item"><text class="dot blue"></text><text>加班</text></view>
+      <view class="legend-item"><text class="dot purple"></text><text>请假</text></view>
+    </view>
+  </view>
+
+  <view class="card panel">
+    <view class="panel-top detail-top">
+      <view class="panel-title">记录明细 <text class="detail-sub">(按最近范围筛选)</text></view>
+      <view class="detail-filters">
+        <view class="filter-pill {{detailFilter === 'all' ? 'active' : ''}}" data-filter="all" bindtap="setDetailFilter">全部</view>
+        <view class="filter-pill {{detailFilter === 'ot' ? 'active' : ''}}" data-filter="ot" bindtap="setDetailFilter">加班</view>
+        <view class="filter-pill {{detailFilter === 'leave' ? 'active' : ''}}" data-filter="leave" bindtap="setDetailFilter">请假</view>
+      </view>
+    </view>
+    <scroll-view wx:if="{{detailRecords.length}}" class="detail-scroll" scroll-y="true" enhanced="true" show-scrollbar="false">
+      <view class="detail-list">
+        <view class="detail-item" wx:for="{{detailRecords}}" wx:key="id">
+          <view class="detail-date">{{item.shortDate}}</view>
+          <view class="detail-main">
+            <view class="detail-line">
+              <view class="type-badge {{item.badgeClass}}">{{item.badgeText}}</view>
+              <view class="detail-hours">{{item.duration}}h</view>
+              <view wx:if="{{item.note}}" class="detail-note">{{item.note}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+    <view wx:else class="empty-text">当前范围内暂无记录</view>
+  </view>
+
+  <view class="card calc-shell">
+    <view class="calc-head">
+      <view class="panel-title">加班费估算</view>
+    </view>
+    <view class="calc-body">
+      <view class="calc-tip">按时间范围和时薪自动估算加班费，结果会随输入即时更新，请以实际工资规则为准。</view>
+      <view class="form-row">
+        <view class="f-label">开始日期</view>
+        <picker mode="date" value="{{calcStart}}" data-field="calcStart" bindchange="onCalcDateChange">
+          <view class="f-input">{{calcStart}}</view>
+        </picker>
+      </view>
+      <view class="form-row">
+        <view class="f-label">结束日期</view>
+        <picker mode="date" value="{{calcEnd}}" data-field="calcEnd" bindchange="onCalcDateChange">
+          <view class="f-input">{{calcEnd}}</view>
+        </picker>
+      </view>
+      <view class="form-row">
+        <view class="f-label">时薪</view>
+        <input class="f-input" type="digit" value="{{hourlyRate}}" bindinput="onRateInput" />
+      </view>
+      <view class="result-panel">
+        <view class="result-total">预计金额 ￥{{calcResult.amount}}</view>
+        <view class="result-item strong">最终结算时长：{{calcResult.settlementHours}}h</view>
+        <view class="result-item">折算工时：{{calcResult.weighted}}h</view>
+        <view class="result-item">平日加班 x1.5：{{calcResult.weekday}}h</view>
+        <view class="result-item">周末加班 x2.0：{{calcResult.weekend}}h</view>
+        <view class="result-item">节假日加班 x3.0：{{calcResult.holiday}}h</view>
+        <view class="result-item leave">请假时长：{{calcResult.leave}}h</view>
+      </view>
+    </view>
+  </view>
+  </block>
+
+  <!-- ====== 底部导航栏（共享） ====== -->
   <view class="bottom-bar">
-    <view class="tab-btn active">
+    <view class="tab-btn {{currentTab === 'calendar' ? 'active' : ''}}" bindtap="switchTab" data-tab="calendar">
       <view class="tab-icon calendar-icon"></view>
       <view class="tab-label">日历</view>
     </view>
@@ -50,7 +230,7 @@
       <view class="add-btn">+</view>
       <view class="add-label">记录</view>
     </view>
-    <view class="tab-btn" bindtap="goStats">
+    <view class="tab-btn {{currentTab === 'stats' ? 'active' : ''}}" bindtap="switchTab" data-tab="stats">
       <view class="tab-icon stats-icon">
         <view class="stats-col stats-a"></view>
         <view class="stats-col stats-b"></view>
@@ -60,6 +240,7 @@
     </view>
   </view>
 
+  <!-- ====== 编辑面板（日历） ====== -->
   <view wx:if="{{showEditor}}" class="sheet-mask" bindtap="closeEditor">
     <view class="sheet-panel" catchtap="noop">
       <view class="sheet-grabber"></view>
@@ -104,6 +285,36 @@
           <view class="field-label">备注</view>
           <textarea class="note-area" value="{{form.note}}" maxlength="100" bindinput="onNoteInput" placeholder="写点备注..." />
         </view>
+        <view class="field-block">
+          <view class="image-head">
+            <view class="field-label no-margin">图片 / 语音</view>
+            <view class="image-count">{{form.images.length}}/3</view>
+          </view>
+          <view class="image-grid">
+            <view wx:for="{{form._resolvedUrls}}" wx:key="*this" class="image-item">
+              <image class="record-image" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="previewRecordImage" />
+              <view class="image-remove" data-index="{{index}}" bindtap="removeRecordImage">x</view>
+            </view>
+            <view wx:if="{{form.images.length < 3}}" class="image-add" bindtap="chooseRecordImages">
+              <view class="image-add-plus">+</view>
+              <view class="image-add-text">添加图片</view>
+            </view>
+            <view wx:if="{{form.voiceId}}" class="voice-bubble" bindtap="toggleFormVoicePlay">
+              <view class="voice-delete" catchtap="deleteFormVoice">x</view>
+              <view class="voice-bubble-dur">{{form.voiceDuration}}"</view>
+              <view class="voice-waves {{isFormVoicePlaying ? 'playing' : ''}}">
+                <view class="wave-bar"></view>
+                <view class="wave-bar"></view>
+                <view class="wave-bar"></view>
+              </view>
+            </view>
+            <view wx:else class="voice-add-btn {{isRecording ? 'recording' : ''}}" bindtap="toggleVoiceRecord">
+              <image class="voice-add-icon-img" src="/speech2.png" mode="aspectFit" />
+              <view wx:if="{{isRecording}}" class="voice-recording-text">录制中</view>
+              <view wx:else class="voice-add-text">录音</view>
+            </view>
+          </view>
+        </view>
         <view class="sheet-actions">
           <button wx:if="{{editingRecordId}}" class="btn-danger delete-btn" bindtap="deleteRecord">删除记录</button>
           <button class="btn-primary save-btn {{form.category === '请假' ? 'leave-save' : ''}}" bindtap="saveRecord">保存记录</button>
@@ -112,6 +323,7 @@
     </view>
   </view>
 
+  <!-- ====== 设置面板（共享） ====== -->
   <view wx:if="{{showSettingsSheet}}" class="sheet-mask" bindtap="closeSettingsSheet">
     <view class="settings-sheet" catchtap="noop">
       <view class="sheet-grabber"></view>
@@ -141,7 +353,7 @@
           <view class="field-input">{{settingLeaveDefaultEnd}}</view>
         </picker>
         <view class="settings-row-top">
-          <view class="settings-label no-margin">休息时段(计算工时时自动扣除)</view>
+          <view class="settings-label no-margin">休息时段（计算工时时自动扣除）</view>
           <view class="sheet-add-btn" bindtap="addSettingsRest">+ 新增时段</view>
         </view>
         <view wx:for="{{settingRestPeriods}}" wx:key="id" class="sheet-rest-row">

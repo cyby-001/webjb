@@ -8,13 +8,16 @@
   <view class="info-card">
     <view class="section-title">核心功能</view>
     <view class="feature-item">记录平日、周末、节假日加班和请假</view>
-    <view class="feature-item">按月份查看统计和趋势</view>
+    <view class="feature-item">按月份查看统计、趋势和加班类型占比</view>
     <view class="feature-item">按时间范围估算加班费</view>
-    <view class="feature-item">支持导入、导出、备份与云同步</view>
+    <view class="feature-item">每个记录支持添加图片（拍照/相册）</view>
+    <view class="feature-item">支持录制语音备注，可回放</view>
+    <view class="feature-item">图片和语音自动云端同步，换机恢复</view>
+    <view class="feature-item">支持 JSON 备份导入、CSV 表格导出</view>
   </view>
 
   <view class="info-card">
     <view class="section-title">说明</view>
-    <view class="plain-text">当前版本聚焦个人工时记录与自助管理，适合日常登记、月度汇总和换机备份恢复。</view>
+    <view class="plain-text">当前版本聚焦个人工时记录与自助管理，适合日常登记、月度汇总和换机备份恢复。图片和语音通过微信云开发存储，随记录自动同步。</view>
   </view>
 </view>
