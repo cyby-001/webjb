@@ -40,8 +40,8 @@ App({
 
     wx.setStorageSync('ot_app_version', CURRENT_VERSION);
     wx.showModal({
-      title: '更新说明',
-      content: '新增功能：\r\n• 图片记录（拍照/相册）\r\n• 语音记录（录音/回放）\r\n• 图片语音自动云端同步\r\n\r\n感谢使用加班记录助手Pro！',
+      title: '',
+      content: '点击以使用最新功能',
       showCancel: false,
       confirmText: '知道了'
     });

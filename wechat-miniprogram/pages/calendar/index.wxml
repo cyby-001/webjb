@@ -187,10 +187,14 @@
 
   <view class="card calc-shell">
     <view class="calc-head">
-      <view class="panel-title">加班费估算</view>
+      <view class="panel-title">{{calcMode === 'money' ? '加班费估算' : '调休时长'}}</view>
+      <view class="calc-mode-switch">
+        <view class="calc-mode-item {{calcMode === 'money' ? 'active' : ''}}" data-mode="money" bindtap="switchCalcMode">报酬</view>
+        <view class="calc-mode-item {{calcMode === 'leave' ? 'active' : ''}}" data-mode="leave" bindtap="switchCalcMode">调休</view>
+      </view>
     </view>
     <view class="calc-body">
-      <view class="calc-tip">按时间范围和时薪自动估算加班费，结果会随输入即时更新，请以实际工资规则为准。</view>
+      <view class="calc-tip">按时间范围和加班类型自动估算，结果会随输入即时更新，请以实际工资规则为准。</view>
       <view class="form-row">
         <view class="f-label">开始日期</view>
         <picker mode="date" value="{{calcStart}}" data-field="calcStart" bindchange="onCalcDateChange">
@@ -203,18 +207,39 @@
           <view class="f-input">{{calcEnd}}</view>
         </picker>
       </view>
-      <view class="form-row">
+      <view wx:if="{{calcMode === 'money'}}" class="form-row">
         <view class="f-label">时薪</view>
         <input class="f-input" type="digit" value="{{hourlyRate}}" bindinput="onRateInput" />
       </view>
       <view class="result-panel">
-        <view class="result-total">预计金额 ￥{{calcResult.amount}}</view>
-        <view class="result-item strong">最终结算时长：{{calcResult.settlementHours}}h</view>
-        <view class="result-item">折算工时：{{calcResult.weighted}}h</view>
-        <view class="result-item">平日加班 x1.5：{{calcResult.weekday}}h</view>
-        <view class="result-item">周末加班 x2.0：{{calcResult.weekend}}h</view>
-        <view class="result-item">节假日加班 x3.0：{{calcResult.holiday}}h</view>
-        <view class="result-item leave">请假时长：{{calcResult.leave}}h</view>
+        <view class="result-main">
+          <view wx:if="{{calcMode === 'money'}}" class="result-big">￥{{calcResult.amount}}</view>
+          <view wx:else class="result-big">{{calcResult.settlementHours}}<text class="result-unit">h</text></view>
+          <view class="result-sub">{{calcMode === 'money' ? '预计金额' : '可调休时长'}}{{calcMode === 'leave' ? '（' + settlementDays + '天' + settlementRemainHours + '小时）' : ''}}</view>
+        </view>
+        <view class="result-divider"></view>
+        <view class="result-grid">
+          <view class="result-cell">
+            <view class="r-num">{{calcResult.weekday}}</view>
+            <view class="r-label">平日{{calcMode === 'money' ? ' x1.5' : ''}}</view>
+          </view>
+          <view class="result-cell">
+            <view class="r-num">{{calcResult.weekend}}</view>
+            <view class="r-label">周末{{calcMode === 'money' ? ' x2.0' : ''}}</view>
+          </view>
+          <view class="result-cell">
+            <view class="r-num">{{calcResult.holiday}}</view>
+            <view class="r-label">节假日{{calcMode === 'money' ? ' x3.0' : ''}}</view>
+          </view>
+          <view wx:if="{{calcMode === 'money'}}" class="result-cell">
+            <view class="r-num accent">{{calcResult.weighted}}</view>
+            <view class="r-label">折算工时</view>
+          </view>
+          <view class="result-cell">
+            <view class="r-num leave-num">{{calcResult.leave}}</view>
+            <view class="r-label">请假</view>
+          </view>
+        </view>
       </view>
     </view>
   </view>

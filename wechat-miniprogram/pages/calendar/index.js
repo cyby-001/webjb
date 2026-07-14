@@ -431,7 +431,10 @@ Page({
     hourlyRate: 25,
     calcStart: '',
     calcEnd: '',
-    calcResult: { ...EMPTY_CALC_RESULT }
+    calcResult: { ...EMPTY_CALC_RESULT },
+    calcMode: 'money',
+    settlementDays: 0,
+    settlementRemainHours: 0
   },
 
   /* ========== lifecycle ========== */
@@ -1052,6 +1055,9 @@ Page({
     const calcStart = calcRange.calcStart;
     const calcEnd = calcRange.calcEnd;
     const calcResult = buildCalcResult(records, calcStart, calcEnd, hourlyRate);
+    const totalHours = calcResult.settlementHours || 0;
+    const settlementDays = Math.floor(totalHours / 8);
+    const settlementRemainHours = Number((totalHours % 8).toFixed(1));
 
     const settingsData = normalizeSettingsState(settings);
 
@@ -1074,7 +1080,9 @@ Page({
       trendMaxText,
       detailRecords,
       chartHint,
-      calcResult
+      calcResult,
+      settlementDays,
+      settlementRemainHours
     });
 
     this.pendingMonthCursor = null;
@@ -1128,9 +1136,13 @@ Page({
     const hourlyRate = sanitizeOneDecimalInput(e.detail.value);
     const rateValue = parseOneDecimal(hourlyRate, 0);
     saveHourlyRate(rateValue);
+    const calcResult = buildCalcResult(this.data.records, this.data.calcStart, this.data.calcEnd, rateValue);
+    const totalHours = calcResult.settlementHours || 0;
     this.setData({
       hourlyRate,
-      calcResult: buildCalcResult(this.data.records, this.data.calcStart, this.data.calcEnd, rateValue)
+      calcResult,
+      settlementDays: Math.floor(totalHours / 8),
+      settlementRemainHours: Number((totalHours % 8).toFixed(1))
     });
   },
 
@@ -1140,10 +1152,20 @@ Page({
     const nextStart = field === 'calcStart' ? value : this.data.calcStart;
     const nextEnd = field === 'calcEnd' ? value : this.data.calcEnd;
     saveCalcPrefs(nextStart, nextEnd);
+    const calcResult = buildCalcResult(this.data.records, nextStart, nextEnd, this.data.hourlyRate);
+    const totalHours = calcResult.settlementHours || 0;
     this.setData({
       [field]: value,
-      calcResult: buildCalcResult(this.data.records, nextStart, nextEnd, this.data.hourlyRate)
+      calcResult,
+      settlementDays: Math.floor(totalHours / 8),
+      settlementRemainHours: Number((totalHours % 8).toFixed(1))
     });
+  },
+
+  switchCalcMode(e) {
+    const mode = e.currentTarget.dataset.mode;
+    if (!mode || mode === this.data.calcMode) return;
+    this.setData({ calcMode: mode });
   },
 
   onTrendTap(e) {
