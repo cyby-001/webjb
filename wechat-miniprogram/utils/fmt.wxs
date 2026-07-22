@@ -1,0 +1,30 @@
+function fmtDur(h, mode) {
+  if (h === undefined || h === null) return '0h';
+  var num = h * 1;
+  if (num !== num) return '0h';
+  if (mode !== 'minute') {
+    return (Math.round(num * 10) / 10) + 'h';
+  }
+  var whole = Math.floor(num);
+  var min = Math.round((num - whole) * 60);
+  if (min >= 60) return (whole + 1) + 'h';
+  if (min === 0) return whole + 'h';
+  return whole + 'h ' + min + 'm';
+}
+
+// 仅返回数字部分（用于大字号展示，单位另行处理）
+function fmtNum(h, mode) {
+  if (h === undefined || h === null) return '0';
+  var num = h * 1;
+  if (num !== num) return '0';
+  if (mode !== 'minute') {
+    return (Math.round(num * 10) / 10) + '';
+  }
+  // 分钟模式仍返回完整字符串（数字和单位已混合）
+  return fmtDur(h, mode);
+}
+
+module.exports = {
+  fmtDur: fmtDur,
+  fmtNum: fmtNum
+};

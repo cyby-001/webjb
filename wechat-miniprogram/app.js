@@ -10,15 +10,12 @@ App({
     }
 
     const updateManager = wx.getUpdateManager();
-    updateManager.onCheckForUpdate(({ hasUpdate }) => {
-      if (hasUpdate) {
-        wx.showToast({ title: '发现新版本，下载中...', icon: 'none', duration: 2000 });
-      }
-    });
     updateManager.onUpdateReady(() => {
       wx.showModal({
-        title: '发现新版本',
-        content: '新版本已就绪，是否立即重启应用？',
+        title: '新版本已就绪',
+        content: '点击确认重启以使用最新功能',
+        showCancel: false,
+        confirmText: '立即重启',
         success(res) {
           if (res.confirm) {
             updateManager.applyUpdate();
@@ -27,23 +24,7 @@ App({
       });
     });
     updateManager.onUpdateFailed(() => {
-      wx.showToast({ title: '新版本下载失败', icon: 'none' });
-    });
-
-    this.showChangelogIfNew();
-  },
-
-  showChangelogIfNew() {
-    const CURRENT_VERSION = '1.1.1';
-    const storedVersion = wx.getStorageSync('ot_app_version') || '';
-    if (storedVersion === CURRENT_VERSION) return;
-
-    wx.setStorageSync('ot_app_version', CURRENT_VERSION);
-    wx.showModal({
-      title: '',
-      content: '点击以使用最新功能',
-      showCancel: false,
-      confirmText: '知道了'
+      // 静默失败，不影响使用
     });
   },
   onError(err) {

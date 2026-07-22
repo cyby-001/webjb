@@ -1,7 +1,7 @@
 const { RecordCategory, OvertimeType, LeaveType } = require('../../utils/constants');
 const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate } = require('../../utils/storage');
 const { payrollEstimate } = require('../../utils/records');
-const { formatDate, calcDuration, getMonthMeta } = require('../../utils/time');
+const { formatDate, calcDuration, getPeriodKey, getMonthMeta } = require('../../utils/time');
 const { writeTempFile, handleGeneratedFile, exportRecordsToCSV, chooseAndReadJSON } = require('../../utils/files');
 const { sanitizeOneDecimalInput, parseOneDecimal } = require('../../utils/decimal');
 const { uploadImage, uploadVoice, getTempUrls, downloadCloudFile, resolveRecordMedia, deleteCloudFiles } = require('../../utils/cloud-files');
@@ -112,8 +112,17 @@ function normalizeSettingsState(settings) {
     settingOtDefaultEnd: settings.otDefaultEnd,
     settingLeaveDefaultStart: settings.leaveDefaultStart,
     settingLeaveDefaultEnd: settings.leaveDefaultEnd,
+    settingDurationFormat: settings.durationFormat || 'hour',
+    settingPeriodStartDay: settings.periodStartDay || 1,
     settingRestPeriods: clonePeriods(settings.restPeriods)
   };
+}
+
+function filterByPeriod(records, cursor, startDay) {
+  if (!startDay || startDay <= 1) {
+    return records.filter((item) => String(item.date || '').startsWith(cursor));
+  }
+  return records.filter((item) => getPeriodKey(item.date, startDay) === cursor);
 }
 
 function buildMonthDays(currentDate, records, selectedDate) {
@@ -185,8 +194,8 @@ function endOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
-function buildMonthSummaryForCursor(records, cursor) {
-  const monthRecords = records.filter((item) => String(item.date || '').startsWith(cursor));
+function buildMonthSummaryForCursor(records, cursor, startDay) {
+  const monthRecords = filterByPeriod(records, cursor, startDay);
   const otRecords = monthRecords.filter((item) => item.category !== RecordCategory.LEAVE);
   const leaveRecords = monthRecords.filter((item) => item.category === RecordCategory.LEAVE);
   return {
@@ -209,19 +218,22 @@ function buildYearSummaryForDate(records, date) {
 
 function buildAllTimeSummary(records) {
   const otRecords = records.filter((item) => item.category !== RecordCategory.LEAVE);
+  const leaveRecords = records.filter((item) => item.category === RecordCategory.LEAVE);
   return {
     totalOtHours: Number(otRecords.reduce((sum, item) => sum + Number(item.duration || 0), 0).toFixed(1)),
-    totalOtCount: otRecords.length
+    totalOtCount: otRecords.length,
+    totalLeaveHours: Number(leaveRecords.reduce((sum, item) => sum + Number(item.duration || 0), 0).toFixed(1)),
+    totalLeaveCount: leaveRecords.length
   };
 }
 
-function buildTrendForDate(records, rangeKey, anchorDate) {
+function buildTrendForDate(records, rangeKey, anchorDate, startDay) {
   const months = rangeKey === '3m' ? 3 : rangeKey === '12m' ? 12 : rangeKey === 'year' ? anchorDate.getMonth() + 1 : 6;
   const data = [];
   for (let i = months - 1; i >= 0; i -= 1) {
     const date = new Date(anchorDate.getFullYear(), anchorDate.getMonth() - i, 1);
     const key = monthCursorFromDate(date);
-    const monthRecords = records.filter((item) => String(item.date || '').startsWith(key));
+    const monthRecords = filterByPeriod(records, key, startDay);
     let otHours = 0;
     let leaveHours = 0;
     monthRecords.forEach((item) => {
@@ -238,8 +250,8 @@ function buildTrendForDate(records, rangeKey, anchorDate) {
   return data;
 }
 
-function buildDonut(records, monthKey) {
-  const monthRecords = records.filter((item) => String(item.date || '').startsWith(monthKey));
+function buildDonut(records, monthKey, startDay) {
+  const monthRecords = filterByPeriod(records, monthKey, startDay);
   let weekday = 0;
   let weekend = 0;
   let holiday = 0;
@@ -252,26 +264,16 @@ function buildDonut(records, monthKey) {
     else weekday += hours;
   });
 
-  const total = weekday + weekend + holiday;
-  const weekdayPct = total > 0 ? (weekday / total) * 100 : 58;
-  const weekendPct = total > 0 ? (weekend / total) * 100 : 27;
-  const holidayPct = total > 0 ? 100 - weekdayPct - weekendPct : 15;
-  const weekdayEnd = weekdayPct.toFixed(2);
-  const weekendEnd = (weekdayPct + weekendPct).toFixed(2);
-  const holidayEnd = (weekdayPct + weekendPct + holidayPct).toFixed(2);
-
   return {
+    total: Number((weekday + weekend + holiday).toFixed(1)),
     weekday: Number(weekday.toFixed(1)),
     weekend: Number(weekend.toFixed(1)),
-    holiday: Number(holiday.toFixed(1)),
-    style: total > 0
-      ? `background: conic-gradient(#4f7af5 0 ${weekdayEnd}%, #ff7a1a ${weekdayEnd}% ${weekendEnd}%, #ef4444 ${weekendEnd}% ${holidayEnd}%);`
-      : 'background: conic-gradient(#dbe3ef 0 100%);'
+    holiday: Number(holiday.toFixed(1))
   };
 }
 
-function buildTrendData(records, rangeKey, anchorDate) {
-  return buildTrendForDate(records, rangeKey, anchorDate);
+function buildTrendData(records, rangeKey, anchorDate, startDay) {
+  return buildTrendForDate(records, rangeKey, anchorDate, startDay);
 }
 
 function buildTrendBars(trend) {
@@ -287,8 +289,8 @@ function buildTrendBars(trend) {
     otHours: item.otHours,
     leaveHours: item.leaveHours,
     shortLabel: item.label.replace('月', ''),
-    otHeight: Math.max(6, Math.round((Number(item.otHours || 0) / maxVal) * 138)),
-    leaveHeight: Math.max(6, Math.round((Number(item.leaveHours || 0) / maxVal) * 138))
+    otHeight: Number(item.otHours || 0) > 0 ? Math.max(10, Math.round((Number(item.otHours || 0) / maxVal) * 138)) : 0,
+    leaveHeight: Number(item.leaveHours || 0) > 0 ? Math.max(10, Math.round((Number(item.leaveHours || 0) / maxVal) * 138)) : 0
   }));
 }
 
@@ -347,11 +349,23 @@ function saveCalcPrefs(calcStart, calcEnd) {
   wx.setStorageSync(CALC_PREFS_KEY, { calcStart, calcEnd });
 }
 
-function resolveCalcRange(selectedMonthCursor, savedPrefs) {
+function resolveCalcRange(selectedMonthCursor, savedPrefs, startDay) {
+  if (savedPrefs.calcStart && savedPrefs.calcEnd) {
+    return { calcStart: savedPrefs.calcStart, calcEnd: savedPrefs.calcEnd };
+  }
   const targetDate = dateFromMonthCursor(selectedMonthCursor);
+  if (!startDay || startDay <= 1) {
+    return {
+      calcStart: `${selectedMonthCursor}-01`,
+      calcEnd: formatDate(endOfMonth(targetDate))
+    };
+  }
+  // 自定义考勤周期：上月 startDay 到本月 startDay-1
+  var periodStart = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, startDay);
+  var periodEnd = new Date(targetDate.getFullYear(), targetDate.getMonth(), startDay - 1);
   return {
-    calcStart: savedPrefs.calcStart || `${selectedMonthCursor}-01`,
-    calcEnd: savedPrefs.calcEnd || formatDate(endOfMonth(targetDate))
+    calcStart: formatDate(periodStart),
+    calcEnd: formatDate(periodEnd)
   };
 }
 
@@ -364,6 +378,11 @@ function buildMonthLabel(targetDate) {
 Page({
   data: {
     currentTab: 'calendar',
+    donutSelectedIndex: -1,          // -1 表示无选中
+    donutSelectedLabel: '',
+    donutSelectedColor: '',
+    donutSelectedHours: 0,
+    donutSelectedPercent: 0,
 
     /* --- shared chrome --- */
     navTop: 0,
@@ -379,6 +398,8 @@ Page({
     settingLeaveDefaultStart: '08:00',
     settingLeaveDefaultEnd: '17:00',
     settingRestPeriods: [],
+    settingDurationFormat: 'hour',
+    settingPeriodStartDay: 1,
 
     /* --- calendar view --- */
     weekShort: WEEK_SHORT,
@@ -420,11 +441,12 @@ Page({
     activeRange: '6m',
     detailFilter: 'all',
     chartHint: '',
+    trendCursor: -1,
     monthSummary: { otHours: 0, leaveHours: 0, otCount: 0, leaveCount: 0 },
     yearSummary: { yearOtHours: 0, yearOtDays: 0 },
-    allTimeSummary: { totalOtHours: 0, totalOtCount: 0 },
+    allTimeSummary: { totalOtHours: 0, totalOtCount: 0, totalLeaveHours: 0, totalLeaveCount: 0 },
     avgMonthlyOt: 0,
-    donut: { weekday: 0, weekend: 0, holiday: 0, style: 'background: conic-gradient(#dbe3ef 0 100%);' },
+    donut: { total: 0, weekday: 0, weekend: 0, holiday: 0 },
     trendBars: [],
     trendMaxText: '',
     detailRecords: [],
@@ -456,6 +478,10 @@ Page({
   onShow() {
     this.reloadAll();
     if (this.data.currentTab === 'stats') {
+      // Canvas 可能在页面隐藏后失效，强制重建
+      this.donutCtx = null;
+      this.donutCanvas = null;
+      this.donutCanvasReady = false;
       this.reloadStats();
     }
   },
@@ -508,15 +534,131 @@ Page({
   switchTab(e) {
     const tab = (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) || e || '';
     if (tab === this.data.currentTab) return;
+
+    // Canvas 随 wx:if 销毁重建，清除旧引用避免指向无效节点
     if (tab === 'stats') {
-      this.reloadStats();
+      this.donutCtx = null;
+      this.donutCanvas = null;
+      this.donutCanvasReady = false;
+      this.donutSegments = [];
     }
+
     this.setData({ currentTab: tab }, () => {
       if (tab === 'calendar') {
         this.refreshCalendar(dateFromMonthCursor(this.data.currentMonthCursor));
+      } else {
+        this.reloadStats();
       }
     });
   },
+
+
+  onReady() {
+  this.donutCanvasReady = false;   // 标记 Canvas 是否已就绪
+  this.donutCtx = null;
+  this.donutCanvas = null;
+  this.donutWidth = 0;
+  this.donutHeight = 0;
+  this.donutSegments = [];         // 存储扇区角度范围，用于点击检测
+  this.donutInitFailures = 0;      // 初始化失败计数
+  },
+
+
+ensureDonutCanvas(retries = 5) {
+    return new Promise((resolve) => {
+      if (this.donutCtx) {
+        resolve(this.donutCtx);
+        return;
+      }
+      
+      // 如果已经失败过太多次，就不再尝试
+      if (this.donutInitFailures > 10) {
+        console.warn('Canvas initialization failed too many times, giving up');
+        resolve(null);
+        return;
+      }
+      
+      const winInfo = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+      const dpr = winInfo.pixelRatio || 1;
+      const windowWidth = winInfo.windowWidth || 375;
+      const rpxRatio = windowWidth / 750;
+
+      const attemptQuery = () => {
+        this.createSelectorQuery()
+          .select('#overtimeDonut')
+          .node((res) => {
+            if (!res || !res.node) {
+              if (retries > 0) {
+                console.warn(`Canvas node not found, retry (${6 - retries}/5)`);
+                setTimeout(() => {
+                  this.ensureDonutCanvas(retries - 1).then(resolve);
+                }, 60);
+              } else {
+                this.donutInitFailures++;
+                console.warn('Canvas node not found after all retries');
+                resolve(null);
+              }
+              return;
+            }
+
+            try {
+              const canvas = res.node;
+              
+              // 检查 canvas 是否是有效的对象
+              if (!canvas || typeof canvas !== 'object') {
+                throw new Error('Canvas is not a valid object');
+              }
+
+              const widthPx = 238 * rpxRatio;
+              const heightPx = 238 * rpxRatio;
+              
+              // 尝试设置 Canvas 属性，如果失败则重试
+              if (typeof canvas.width !== 'number' || canvas.width === undefined) {
+                throw new Error('Canvas width property not writable');
+              }
+              
+              canvas.width = widthPx * dpr;
+              canvas.height = heightPx * dpr;
+              
+              // Canvas 样式可能不支持，所以放在 try-catch 中
+              if (canvas.style) {
+                canvas.style.width = widthPx + 'px';
+                canvas.style.height = heightPx + 'px';
+              }
+              
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                throw new Error('Failed to get 2d context from canvas');
+              }
+              
+              ctx.scale(dpr, dpr);
+              this.donutCanvas = canvas;
+              this.donutCtx = ctx;
+              this.donutWidth = widthPx;
+              this.donutHeight = heightPx;
+              this.donutCanvasReady = true;
+              this.donutInitFailures = 0;  // 成功时重置失败计数
+              resolve(ctx);
+            } catch (err) {
+              console.error('Error setting up canvas:', err);
+              if (retries > 0) {
+                console.warn(`Retrying canvas setup (${6 - retries}/5)`);
+                setTimeout(() => {
+                  this.ensureDonutCanvas(retries - 1).then(resolve);
+                }, 60);
+              } else {
+                this.donutInitFailures++;
+                resolve(null);
+              }
+            }
+          })
+          .exec();
+      };
+
+      attemptQuery();
+    });
+  },
+
 
   /* ========== calendar: data loading ========== */
 
@@ -1035,13 +1177,13 @@ Page({
       || fallbackCursor;
     const targetDate = dateFromMonthCursor(selectedMonthCursor);
     const calcPrefs = loadCalcPrefs();
-    const calcRange = resolveCalcRange(selectedMonthCursor, calcPrefs);
-
-    const monthSummary = buildMonthSummaryForCursor(records, selectedMonthCursor);
+    const startDay = settings.periodStartDay || 1;
+    const calcRange = resolveCalcRange(selectedMonthCursor, calcPrefs, startDay);
+    const monthSummary = buildMonthSummaryForCursor(records, selectedMonthCursor, startDay);
     const yearSummary = buildYearSummaryForDate(records, targetDate);
     const allTimeSummary = buildAllTimeSummary(records);
-    const donut = buildDonut(records, selectedMonthCursor);
-    const trend = buildTrendData(records, this.data.activeRange, targetDate);
+    const donut = buildDonut(records, selectedMonthCursor, startDay);
+    const trend = buildTrendData(records, this.data.activeRange, targetDate, startDay);
     const trendBars = buildTrendBars(trend);
     const maxTrend = trend.reduce((best, item) =>
       (!best || Number(item.otHours || 0) > Number(best.otHours || 0) ? item : best), null);
@@ -1076,6 +1218,12 @@ Page({
       allTimeSummary,
       avgMonthlyOt,
       donut,
+      donutSelectedIndex: -1,
+      donutSelectedLabel: '',
+      donutSelectedColor: '',
+      donutSelectedHours: 0,
+      donutSelectedPercent: 0,
+      trendCursor: -1,
       trendBars,
       trendMaxText,
       detailRecords,
@@ -1083,6 +1231,8 @@ Page({
       calcResult,
       settlementDays,
       settlementRemainHours
+    }, () => {
+      this.drawDonutChart();
     });
 
     this.pendingMonthCursor = null;
@@ -1097,7 +1247,7 @@ Page({
   setRange(e) {
     const key = e.currentTarget.dataset.key;
     if (!key || key === this.data.activeRange) return;
-    this.setData({ activeRange: key }, () => this.reloadStats());
+    this.setData({ activeRange: key, trendCursor: -1 }, () => this.reloadStats());
   },
 
   setDetailFilter(e) {
@@ -1110,8 +1260,15 @@ Page({
     const current = dateFromMonthCursor(this.data.selectedMonthCursor || monthCursorFromDate(new Date()));
     const targetDate = new Date(current.getFullYear(), current.getMonth() + offset, 1);
     const selectedMonthCursor = monthCursorFromDate(targetDate);
-    const calcStart = `${selectedMonthCursor}-01`;
-    const calcEnd = formatDate(endOfMonth(targetDate));
+    const startDay = this.data.settingPeriodStartDay || 1;
+    let calcStart, calcEnd;
+    if (startDay <= 1) {
+      calcStart = `${selectedMonthCursor}-01`;
+      calcEnd = formatDate(endOfMonth(targetDate));
+    } else {
+      calcStart = formatDate(new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, startDay));
+      calcEnd = formatDate(new Date(targetDate.getFullYear(), targetDate.getMonth(), startDay - 1));
+    }
     this.pendingMonthCursor = selectedMonthCursor;
     wx.setStorageSync(SELECTED_MONTH_CURSOR_KEY, selectedMonthCursor);
     saveCalcPrefs(calcStart, calcEnd);
@@ -1168,9 +1325,201 @@ Page({
     this.setData({ calcMode: mode });
   },
 
+  /* ========== trend chart interaction ========== */
+
   onTrendTap(e) {
-    const ds = e.currentTarget.dataset;
-    this.setData({ chartHint: `${ds.label}月：加班 ${ds.ot}h / 请假 ${ds.leave}h` });
+    const index = Number(e.currentTarget.dataset.index);
+    if (!Number.isFinite(index)) return;
+    const bars = this.data.trendBars || [];
+    const bar = bars[index];
+    if (!bar) return;
+
+    // 点击同一柱子取消选中
+    const newCursor = (index === this.data.trendCursor) ? -1 : index;
+    const hint = newCursor !== -1
+      ? `${bar.shortLabel}月：加班 ${bar.otHours}h / 请假 ${bar.leaveHours}h`
+      : '';
+
+    this.setData({
+      trendCursor: newCursor,
+      chartHint: hint
+    });
+  },
+
+  /* ========== donut chart ========== */
+
+  async drawDonutChart() {
+  const ctx = await this.ensureDonutCanvas();
+  if (!ctx) {
+    console.warn('Canvas context not available, skip drawing');
+    return;
+  }
+  
+  // 确保宽高已初始化
+  if (!this.donutWidth || !this.donutHeight) {
+    console.warn('Canvas dimensions not initialized');
+    return;
+  }
+  
+  const { donut, donutSelectedIndex } = this.data;
+  const total = Number(donut.total) || 0;
+  const width = this.donutWidth;
+  const height = this.donutHeight;
+  const cx = width / 2;
+  const cy = height / 2;
+  const outerRadius = Math.min(width, height) * 0.45;
+  const innerRadius = outerRadius * 0.72;
+  const gapAngle = 3 * Math.PI / 180; // 扇区间 3° 间隙
+
+  ctx.clearRect(0, 0, width, height);
+
+  if (total === 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerRadius, 0, 2 * Math.PI);
+    ctx.arc(cx, cy, innerRadius, 0, 2 * Math.PI, true);
+    ctx.closePath();
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fill();
+    this.donutSegments = [];
+    return;
+  }
+
+  const segments = [
+    { key: 'weekday', label: '平日', value: Number(donut.weekday) || 0, color: '#4f7af5' },
+    { key: 'weekend', label: '周末', value: Number(donut.weekend) || 0, color: '#ff7a1a' },
+    { key: 'holiday', label: '节假日', value: Number(donut.holiday) || 0, color: '#ef4444' },
+  ];
+
+  const activeCount = segments.filter(s => s.value > 0).length;
+  const gapCount = activeCount > 1 ? activeCount : 0;
+  const totalAngle = 2 * Math.PI - gapCount * gapAngle;
+
+  let startAngle = -Math.PI / 2; // 从 12 点钟方向开始
+  const segData = [];
+  for (const seg of segments) {
+    const ratio = seg.value / total;
+    const drawAngle = seg.value > 0 ? ratio * totalAngle : 0;
+    const endAngle = startAngle + drawAngle;
+    segData.push({ ...seg, startAngle, endAngle, drawAngle });
+    if (drawAngle > 0) startAngle = endAngle + gapAngle;
+  }
+
+  this.donutSegments = segData;
+
+  // 先画非选中扇区，再画选中扇区（让选中的在最上层）
+  const drawOrder = segData.map((_, i) => i).sort((a, b) =>
+    (a === donutSelectedIndex ? 1 : 0) - (b === donutSelectedIndex ? 1 : 0)
+  );
+
+  for (const i of drawOrder) {
+    const seg = segData[i];
+    if (seg.drawAngle <= 0) continue;
+    const isSelected = (donutSelectedIndex === i);
+    const rOuter = isSelected ? outerRadius + 5 : outerRadius;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, rOuter, seg.startAngle, seg.endAngle);
+    ctx.arc(cx, cy, innerRadius, seg.endAngle, seg.startAngle, true);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+  }
+},
+
+  selectDonutSegment(e) {
+    if (!this.donutWidth || !this.donutHeight || !this.donutSegments || !this.donutSegments.length) {
+      return;
+    }
+
+    // bindtouchstart → e.touches[0]; bindtouchend → e.changedTouches[0]
+    const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    if (!touch) return;
+    const x = touch.clientX || touch.x || 0;
+    const y = touch.clientY || touch.y || 0;
+    if (!x || !y) return;
+
+    this.createSelectorQuery()
+      .select('.donut-canvas')
+      .boundingClientRect((rect) => {
+        if (!rect) return;
+
+        const tapX = x - rect.left;
+        const tapY = y - rect.top;
+
+        const cx = this.donutWidth / 2;
+        const cy = this.donutHeight / 2;
+        const outerRadius = Math.min(this.donutWidth, this.donutHeight) * 0.48;
+        const innerRadius = outerRadius * 0.72;
+
+        const dx = tapX - cx;
+        const dy = tapY - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // 点击在圆环外或内圈 → 取消选中
+        if (dist < innerRadius || dist > outerRadius + 8) {
+          if (this.data.donutSelectedIndex !== -1) {
+            this.setData({ donutSelectedIndex: -1 }, () => this.drawDonutChart());
+          }
+          return;
+        }
+
+        let angle = Math.atan2(dy, dx);
+        if (angle < 0) angle += 2 * Math.PI;
+
+        const segs = this.donutSegments;
+        let found = -1;
+        for (let i = 0; i < segs.length; i++) {
+          const seg = segs[i];
+          // 处理跨越 0/2π 边界的情况
+          const aStart = seg.startAngle < 0 ? seg.startAngle + 2 * Math.PI : seg.startAngle;
+          const aEnd = seg.endAngle < 0 ? seg.endAngle + 2 * Math.PI : seg.endAngle;
+          let hit;
+          if (aStart <= aEnd) {
+            hit = angle >= aStart && angle < aEnd;
+          } else {
+            hit = angle >= aStart || angle < aEnd; // 跨越边界
+          }
+          if (hit) {
+            found = i;
+            break;
+          }
+        }
+
+        // 点击同一扇区 → 取消选中；否则切换
+        const newIndex = (found === this.data.donutSelectedIndex) ? -1 : found;
+        this.applyDonutSelection(newIndex, found !== -1 ? segs[found] : null);
+      })
+      .exec();
+  },
+
+  /* 点击图例切换选中 */
+  onLegendTap(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (!Number.isFinite(index)) return;
+    const segs = this.donutSegments || [];
+    const seg = segs[index];
+    if (!seg || seg.drawAngle <= 0) return; // 无数据项不响应
+    const newIndex = (index === this.data.donutSelectedIndex) ? -1 : index;
+    this.applyDonutSelection(newIndex, seg);
+  },
+
+  /* 统一更新选中状态 + 重绘 */
+  applyDonutSelection(newIndex, seg) {
+    const updateData = { donutSelectedIndex: newIndex };
+    if (newIndex !== -1 && seg) {
+      const total = Number(this.data.donut.total) || 0;
+      const percent = total > 0 ? Math.round((seg.value / total) * 100) : 0;
+      updateData.donutSelectedLabel = seg.label;
+      updateData.donutSelectedColor = seg.color;
+      updateData.donutSelectedHours = seg.value;
+      updateData.donutSelectedPercent = percent;
+    } else {
+      updateData.donutSelectedLabel = '';
+      updateData.donutSelectedColor = '';
+      updateData.donutSelectedHours = 0;
+      updateData.donutSelectedPercent = 0;
+    }
+    this.setData(updateData, () => this.drawDonutChart());
   },
 
   /* ========== shared: top menu & settings ========== */
@@ -1245,6 +1594,8 @@ Page({
       otDefaultEnd: this.data.settingOtDefaultEnd,
       leaveDefaultStart: this.data.settingLeaveDefaultStart,
       leaveDefaultEnd: this.data.settingLeaveDefaultEnd,
+      durationFormat: this.data.settingDurationFormat || 'hour',
+      periodStartDay: Number(this.data.settingPeriodStartDay) || 1,
       restPeriods: clonePeriods(this.data.settingRestPeriods)
     };
     const data = normalizeSettingsState(settings);
@@ -1253,6 +1604,17 @@ Page({
     saveSettings(settings);
     this.setData(data);
     wx.showToast({ title: '设置已保存', icon: 'success' });
+  },
+
+  onDurationFormatChange(e) {
+    const mode = e.currentTarget.dataset.mode;
+    if (!mode) return;
+    this.setData({ settingDurationFormat: mode });
+  },
+
+  onPeriodStartDayInput(e) {
+    // 允许临时清空以便用户输入，保存时再规整
+    this.setData({ settingPeriodStartDay: e.detail.value });
   },
 
   /* ========== shared: import / export ========== */

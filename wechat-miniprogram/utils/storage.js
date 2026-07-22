@@ -54,6 +54,8 @@ function buildSettings(source) {
     otDefaultEnd: settings.otDefaultEnd || DEFAULT_SETTINGS.otDefaultEnd,
     leaveDefaultStart: settings.leaveDefaultStart || DEFAULT_SETTINGS.leaveDefaultStart,
     leaveDefaultEnd: settings.leaveDefaultEnd || DEFAULT_SETTINGS.leaveDefaultEnd,
+    durationFormat: settings.durationFormat === 'minute' ? 'minute' : 'hour',
+    periodStartDay: Number.isFinite(Number(settings.periodStartDay)) && Number(settings.periodStartDay) >= 1 && Number(settings.periodStartDay) <= 28 ? Number(settings.periodStartDay) : 1,
     restPeriods: Array.isArray(settings.restPeriods)
       ? cloneRestPeriods(settings.restPeriods)
       : cloneRestPeriods(DEFAULT_SETTINGS.restPeriods)

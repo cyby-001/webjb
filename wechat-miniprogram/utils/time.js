@@ -12,12 +12,6 @@ function formatDate(date) {
   return `${y}-${m}-${d}`;
 }
 
-function monthKey(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
-}
-
 function calcDuration(start, end, restPeriods) {
   let startMin = toMinutes(start);
   let endMin = toMinutes(end);
@@ -43,7 +37,7 @@ function calcDuration(start, end, restPeriods) {
   });
 
   const totalHours = (endMin - startMin) / 60 - restHours;
-  return Math.max(0, Number(totalHours.toFixed(1)));
+  return Math.max(0, Number(totalHours.toFixed(2)));
 }
 
 function getMonthMeta(baseDate) {
@@ -54,8 +48,41 @@ function getMonthMeta(baseDate) {
   return { year, month, daysInMonth, firstDay };
 }
 
+function formatDuration(hours, mode) {
+  if (hours == null || !Number.isFinite(Number(hours))) return '0h';
+  const h = Number(hours);
+  if (mode !== 'minute') {
+    // 小时模式：保留 1 位小数
+    return Number(h.toFixed(1)) + 'h';
+  }
+  // 分钟模式：Xh Ym
+  const wholeHours = Math.floor(h);
+  const minutes = Math.round((h - wholeHours) * 60);
+  if (minutes >= 60) {
+    return (wholeHours + 1) + 'h';
+  }
+  if (minutes === 0) {
+    return wholeHours + 'h';
+  }
+  return wholeHours + 'h ' + minutes + 'm';
+}
+
+function getPeriodKey(dateStr, startDay) {
+  if (!startDay || startDay <= 1) return (dateStr || '').slice(0, 7);
+  var d = new Date(dateStr.replace(/-/g, '/') + ' 00:00:00');
+  if (isNaN(d.getTime())) return (dateStr || '').slice(0, 7);
+  var day = d.getDate();
+  if (day >= startDay) {
+    var next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    return formatDate(next).slice(0, 7);
+  }
+  return (dateStr || '').slice(0, 7);
+}
+
 module.exports = {
   formatDate,
   calcDuration,
+  formatDuration,
+  getPeriodKey,
   getMonthMeta
 };

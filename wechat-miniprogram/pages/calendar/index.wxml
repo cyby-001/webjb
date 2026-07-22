@@ -1,3 +1,5 @@
+<wxs module="fmt" src="../../utils/fmt.wxs"></wxs>
+
 <view class="container {{currentTab === 'calendar' ? 'calendar-page' : 'stats-page'}}">
   <app-header
     navTop="{{navTop}}"
@@ -34,7 +36,7 @@
         <view wx:if="{{!item.empty}}" class="day-cell {{item.isToday ? 'today' : ''}} {{item.selected ? 'selected' : ''}}" data-date="{{item.dateStr}}" bindtap="onTapDay">
           <view class="day-number {{item.isWeekend ? 'weekend' : ''}}">{{item.day}}</view>
           <view class="day-lunar">{{item.lunarText}}</view>
-          <view wx:if="{{item.record}}" class="day-badge {{item.tagClass}}">{{item.record.duration}}h</view>
+          <view wx:if="{{item.record}}" class="day-badge {{item.tagClass}}">{{fmt.fmtDur(item.record.duration, settingDurationFormat)}}</view>
           <view wx:if="{{item.notePreview}}" class="day-note">{{item.notePreview}}</view>
           <view wx:if="{{item.isToday && !item.record}}" class="today-dot"></view>
         </view>
@@ -50,10 +52,10 @@
         <view class="selected-detail-caption">每日记录</view>
         <view class="selected-detail-title">{{selectedDateText}}</view>
       </view>
-      <view wx:if="{{selectedDayRecord}}" class="selected-detail-badge {{selectedDayRecord.category === '请假' ? 'leave' : 'ot'}}">{{selectedDayRecord.duration}}h</view>
+      <view wx:if="{{selectedDayRecord}}" class="selected-detail-badge {{selectedDayRecord.category === '请假' ? 'leave' : 'ot'}}">{{fmt.fmtDur(selectedDayRecord.duration, settingDurationFormat)}}</view>
     </view>
     <view wx:if="{{selectedDayRecord && selectedDayRecord.note}}" class="selected-note">{{selectedDayRecord.note}}</view>
-    <view wx:else class="selected-empty">当天暂无记录</view>
+    <view wx:else class="selected-empty">当天暂无备注</view>
     <view wx:if="{{(selectedDayRecord && selectedDayRecord.images && selectedDayRecord.images.length) || (selectedDayRecord && selectedDayRecord.voiceDuration)}}" class="selected-image-row">
       <image wx:for="{{selectedDayRecord._resolvedUrls}}" wx:key="*this" class="selected-image" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="previewSelectedDayImage" />
       <view wx:if="{{selectedDayRecord.voiceDuration}}" class="voice-bubble-sm" bindtap="toggleCardVoicePlay">
@@ -79,61 +81,70 @@
   <view class="summary-row">
     <view class="summary-card strong blue">
       <view class="summary-head">本月加班总时长</view>
-      <view class="summary-value">{{monthSummary.otHours}}</view>
+      <view class="summary-value">{{fmt.fmtNum(monthSummary.otHours, settingDurationFormat)}}<text wx:if="{{settingDurationFormat === 'hour'}}" class="val-unit">h</text></view>
       <view class="summary-foot">时长 / {{monthSummary.otCount}} 次</view>
     </view>
     <view class="summary-card strong purple">
       <view class="summary-head">本月请假 / 调休</view>
-      <view class="summary-value">{{monthSummary.leaveHours}}</view>
+      <view class="summary-value">{{fmt.fmtNum(monthSummary.leaveHours, settingDurationFormat)}}<text wx:if="{{settingDurationFormat === 'hour'}}" class="val-unit">h</text></view>
       <view class="summary-foot">时长 / {{monthSummary.leaveCount}} 次</view>
     </view>
   </view>
 
-  <view class="summary-row mini-row">
-    <view class="summary-card mini">
-      <view class="mini-head">今年累计加班</view>
-      <view class="mini-value">{{yearSummary.yearOtHours}}<text class="mini-unit">h</text></view>
-      <view class="mini-foot">{{yearSummary.yearOtDays}} 天 / {{currentYearLabel}}年</view>
-    </view>
-    <view class="summary-card mini">
-      <view class="mini-head">月均加班</view>
-      <view class="mini-value">{{avgMonthlyOt}}<text class="mini-unit">h</text></view>
-      <view class="mini-foot">按当前筛选范围计算</view>
-    </view>
-  </view>
-
   <view class="summary-card total-card">
-    <view>
-      <view class="total-head">累计加班总时长</view>
-      <view class="total-foot">累计 {{allTimeSummary.totalOtCount}} 次加班记录</view>
+    <view class="total-overview">
+      <view class="total-stat">
+        <view class="total-head">累计加班</view>
+        <view class="total-value">{{fmt.fmtNum(allTimeSummary.totalOtHours, settingDurationFormat)}}<text wx:if="{{settingDurationFormat === 'hour'}}" class="val-unit">h</text></view>
+        <view class="total-foot">共 {{allTimeSummary.totalOtCount}} 次记录</view>
+      </view>
+      <view class="total-divider"></view>
+      <view class="total-stat leave">
+        <view class="total-head">累计请假</view>
+        <view class="total-value">{{fmt.fmtNum(allTimeSummary.totalLeaveHours, settingDurationFormat)}}<text wx:if="{{settingDurationFormat === 'hour'}}" class="val-unit">h</text></view>
+        <view class="total-foot">共 {{allTimeSummary.totalLeaveCount}} 次记录</view>
+      </view>
     </view>
-    <view class="total-value">{{allTimeSummary.totalOtHours}}<text class="total-unit">h</text></view>
+    <view class="total-meta-row">
+      <view class="total-meta-item">
+        <view class="total-meta-label">今年累计加班</view>
+        <view class="total-meta-value">{{fmt.fmtNum(yearSummary.yearOtHours, settingDurationFormat)}}<text wx:if="{{settingDurationFormat === 'hour'}}" class="val-unit">h</text></view>
+        <view class="total-meta-note">{{yearSummary.yearOtDays}} 天 / {{currentYearLabel}}年</view>
+      </view>
+      <view class="total-meta-item">
+        <view class="total-meta-label">月均加班</view>
+        <view class="total-meta-value">{{fmt.fmtNum(avgMonthlyOt, settingDurationFormat)}}<text wx:if="{{settingDurationFormat === 'hour'}}" class="val-unit">h</text></view>
+        <view class="total-meta-note">按当前范围计算</view>
+      </view>
+    </view>
   </view>
 
-  <view class="card panel">
+  <view class="card panel donut-panel">
+  <view class="donut-panel-top">
     <view class="panel-title">本月加班类型占比</view>
-    <view class="donut-layout">
-      <view class="donut-wrap">
-        <view class="donut" style="{{donut.style}}">
-          <view class="donut-hole"></view>
-        </view>
-      </view>
-      <view class="donut-side">
-        <view class="donut-meta-item">
-          <view class="legend-item compact"><text class="dot blue"></text><text>平日加班</text></view>
-          <view class="donut-hours">{{donut.weekday}}h</view>
-        </view>
-        <view class="donut-meta-item">
-          <view class="legend-item compact"><text class="dot orange"></text><text>周末加班</text></view>
-          <view class="donut-hours">{{donut.weekend}}h</view>
-        </view>
-        <view class="donut-meta-item">
-          <view class="legend-item compact"><text class="dot red"></text><text>节假日加班</text></view>
-          <view class="donut-hours">{{donut.holiday}}h</view>
+    <view class="donut-caption">点击查看详情</view>
+  </view>
+  <view class="donut-layout">
+    <view class="donut-wrap">
+      <view class="donut-stage">
+        <canvas type="2d" id="overtimeDonut" class="donut-canvas" bindtouchstart="selectDonutSegment"></canvas>
+        <view class="donut-center">
+          <view class="donut-center-label">{{donutSelectedIndex === -1 ? '总计' : donutSelectedLabel}}</view>
+          <view class="donut-center-value">{{fmt.fmtNum(donutSelectedIndex === -1 ? donut.total : donutSelectedHours, settingDurationFormat)}}<text wx:if="{{settingDurationFormat === 'hour'}}" class="val-unit">h</text></view>
+          <view wx:if="{{donutSelectedIndex !== -1}}" class="donut-center-sub">
+            <view class="donut-center-dot" style="background:{{donutSelectedColor}};"></view>
+            <text>{{donutSelectedPercent}}%</text>
+          </view>
         </view>
       </view>
     </view>
   </view>
+  <view class="legend-row donut-legend">
+    <view class="legend-item {{donutSelectedIndex === 0 ? 'active' : ''}}" data-index="0" bindtap="onLegendTap"><text class="dot blue"></text><text>平日</text></view>
+    <view class="legend-item {{donutSelectedIndex === 1 ? 'active' : ''}}" data-index="1" bindtap="onLegendTap"><text class="dot orange"></text><text>周末</text></view>
+    <view class="legend-item {{donutSelectedIndex === 2 ? 'active' : ''}}" data-index="2" bindtap="onLegendTap"><text class="dot red"></text><text>节假日</text></view>
+  </view>
+</view>
 
   <view class="card panel">
     <view class="panel-top">
@@ -143,12 +154,12 @@
       </view>
     </view>
     <view wx:if="{{trendMaxText}}" class="trend-note">加班峰值：{{trendMaxText}}</view>
-    <view class="chart-hint">{{chartHint}}</view>
+    <view class="chart-hint {{chartHint ? 'active' : ''}}">{{chartHint}}</view>
     <view class="bar-area">
-      <view class="bar-col" wx:for="{{trendBars}}" wx:key="month" data-label="{{item.shortLabel}}" data-ot="{{item.otHours}}" data-leave="{{item.leaveHours}}" bindtap="onTrendTap">
+      <view class="bar-col {{trendCursor === index ? 'active' : ''}}" wx:for="{{trendBars}}" wx:key="month" data-index="{{index}}" data-label="{{item.shortLabel}}" data-ot="{{item.otHours}}" data-leave="{{item.leaveHours}}" bindtap="onTrendTap">
         <view class="bars">
-          <view class="bar ot" style="height: {{item.otHeight}}rpx"></view>
-          <view class="bar leave" style="height: {{item.leaveHeight}}rpx"></view>
+          <view wx:if="{{item.otHeight > 0}}" class="bar ot" style="height: {{item.otHeight}}rpx"></view>
+          <view wx:if="{{item.leaveHeight > 0}}" class="bar leave" style="height: {{item.leaveHeight}}rpx"></view>
         </view>
         <view class="bar-label">{{item.shortLabel}}月</view>
       </view>
@@ -175,7 +186,7 @@
           <view class="detail-main">
             <view class="detail-line">
               <view class="type-badge {{item.badgeClass}}">{{item.badgeText}}</view>
-              <view class="detail-hours">{{item.duration}}h</view>
+              <view class="detail-hours">{{fmt.fmtDur(item.duration, settingDurationFormat)}}</view>
               <view wx:if="{{item.note}}" class="detail-note">{{item.note}}</view>
             </view>
           </view>
@@ -214,7 +225,7 @@
       <view class="result-panel">
         <view class="result-main">
           <view wx:if="{{calcMode === 'money'}}" class="result-big">￥{{calcResult.amount}}</view>
-          <view wx:else class="result-big">{{calcResult.settlementHours}}<text class="result-unit">h</text></view>
+          <view wx:else class="result-big">{{fmt.fmtDur(calcResult.settlementHours, settingDurationFormat)}}</view>
           <view class="result-sub">{{calcMode === 'money' ? '预计金额' : '可调休时长'}}{{calcMode === 'leave' ? '（' + settlementDays + '天' + settlementRemainHours + '小时）' : ''}}</view>
         </view>
         <view class="result-divider"></view>
@@ -297,7 +308,7 @@
           <view class="field-label">工时 / 时长</view>
           <view class="duration-row">
             <input class="field-input flex-fill" type="digit" value="{{form.duration}}" bindinput="onDurationInput" />
-            <view class="duration-chip">{{form.duration}}h</view>
+            <view class="duration-chip">{{fmt.fmtDur(form.duration, settingDurationFormat)}}</view>
           </view>
         </view>
         <view class="field-block">
@@ -377,6 +388,17 @@
         <picker mode="time" value="{{settingLeaveDefaultEnd}}" data-field="settingLeaveDefaultEnd" bindchange="onSettingsTimeChange">
           <view class="field-input">{{settingLeaveDefaultEnd}}</view>
         </picker>
+        <view class="settings-label gap-top">考勤周期起始日</view>
+        <view class="period-day-row">
+          <view class="period-day-label">每月</view>
+          <input class="period-day-input" type="number" value="{{settingPeriodStartDay}}" bindinput="onPeriodStartDayInput" />
+          <view class="period-day-label">号开始</view>
+        </view>
+        <view class="settings-label gap-top">时长显示模式</view>
+        <view class="df-row">
+          <view class="df-item {{settingDurationFormat === 'hour' ? 'active' : ''}}" data-mode="hour" bindtap="onDurationFormatChange">1.5h</view>
+          <view class="df-item {{settingDurationFormat === 'minute' ? 'active' : ''}}" data-mode="minute" bindtap="onDurationFormatChange">1h 30m</view>
+        </view>
         <view class="settings-row-top">
           <view class="settings-label no-margin">休息时段（计算工时时自动扣除）</view>
           <view class="sheet-add-btn" bindtap="addSettingsRest">+ 新增时段</view>

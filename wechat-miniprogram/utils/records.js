@@ -34,12 +34,12 @@ function payrollEstimate(records, startDate, endDate, hourlyRate) {
   const weighted = payableWeekday * 1.5 + payableWeekend * 2 + payableHoliday * 3;
 
   return {
-    weekday: Number(weekday.toFixed(1)),
-    weekend: Number(weekend.toFixed(1)),
-    holiday: Number(holiday.toFixed(1)),
-    leave: Number(leave.toFixed(1)),
-    weighted: Number(weighted.toFixed(1)),
-    settlementHours: Number(settlementHours.toFixed(1)),
+    weekday: Number(weekday.toFixed(2)),
+    weekend: Number(weekend.toFixed(2)),
+    holiday: Number(holiday.toFixed(2)),
+    leave: Number(leave.toFixed(2)),
+    weighted: Number(weighted.toFixed(2)),
+    settlementHours: Number(settlementHours.toFixed(2)),
     amount: Number((weighted * Number(hourlyRate || 0)).toFixed(2))
   };
 }
