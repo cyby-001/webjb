@@ -1,5 +1,20 @@
 const { RecordCategory, OvertimeType } = require('./constants');
 
+function cloneImages(images) {
+  if (!Array.isArray(images)) return [];
+  return images.filter((item) => typeof item === 'string' && item).slice(0, 3);
+}
+
+function clonePeriods(periods) {
+  if (!Array.isArray(periods)) return [];
+  return periods.map((item) => ({
+    id: item.id,
+    start: item.start,
+    end: item.end,
+    label: item.label
+  }));
+}
+
 function payrollEstimate(records, startDate, endDate, hourlyRate) {
   const selected = records.filter((r) => r.date >= startDate && r.date <= endDate);
   let weekday = 0;
@@ -44,4 +59,4 @@ function payrollEstimate(records, startDate, endDate, hourlyRate) {
   };
 }
 
-module.exports = { payrollEstimate };
+module.exports = { payrollEstimate, cloneImages, clonePeriods };

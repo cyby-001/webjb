@@ -1,25 +1,11 @@
 const { STORAGE_KEYS, DEFAULT_SETTINGS } = require('./constants');
+const { cloneImages, clonePeriods } = require('./records');
 
 const CLOUD_COLLECTION = 'ot_profiles';
 const LOCAL_META_KEYS = {
   CLOUD_DOC_ID: 'ot_cloud_doc_id',
   UPDATED_AT: 'ot_state_updated_at'
 };
-
-function cloneRestPeriods(restPeriods) {
-  if (!Array.isArray(restPeriods)) return [];
-  return restPeriods.map((item) => ({
-    id: item.id,
-    start: item.start,
-    end: item.end,
-    label: item.label
-  }));
-}
-
-function cloneImages(images) {
-  if (!Array.isArray(images)) return [];
-  return images.filter((item) => typeof item === 'string' && item).slice(0, 3);
-}
 
 function cloneRecords(records) {
   if (!Array.isArray(records)) return [];
@@ -57,8 +43,8 @@ function buildSettings(source) {
     durationFormat: settings.durationFormat === 'minute' ? 'minute' : 'hour',
     periodStartDay: Number.isFinite(Number(settings.periodStartDay)) && Number(settings.periodStartDay) >= 1 && Number(settings.periodStartDay) <= 28 ? Number(settings.periodStartDay) : 1,
     restPeriods: Array.isArray(settings.restPeriods)
-      ? cloneRestPeriods(settings.restPeriods)
-      : cloneRestPeriods(DEFAULT_SETTINGS.restPeriods)
+      ? clonePeriods(settings.restPeriods)
+      : clonePeriods(DEFAULT_SETTINGS.restPeriods)
   };
 }
 

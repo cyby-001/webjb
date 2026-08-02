@@ -10,52 +10,15 @@ function _cloudPath(prefix, suffix, ext) {
   return `${CLOUD_PATH_PREFIX}/${prefix}_${ts}_${suffix}${extension}`;
 }
 
-/** Upload a single image to cloud storage, returns cloud file ID */
-function uploadImage(localPath) {
+/** Upload a file to cloud storage, returns cloud file ID. kind: 'img' | 'voice' */
+function uploadFile(localPath, kind) {
   if (!_cloudAvailable() || !localPath) return Promise.resolve('');
   return new Promise((resolve) => {
     wx.cloud.uploadFile({
-      cloudPath: _cloudPath('img', Math.random().toString(36).slice(2, 8)),
+      cloudPath: _cloudPath(kind || 'img', Math.random().toString(36).slice(2, 8), kind === 'voice' ? 'aac' : ''),
       filePath: localPath,
       success(res) { resolve(res.fileID || ''); },
-      fail(err) { console.warn('[uploadImage failed]', err); resolve(''); }
-    });
-  });
-}
-
-/** Upload a voice file to cloud storage, returns cloud file ID */
-function uploadVoice(localPath) {
-  if (!_cloudAvailable() || !localPath) return Promise.resolve('');
-  return new Promise((resolve) => {
-    wx.cloud.uploadFile({
-      cloudPath: _cloudPath('voice', Math.random().toString(36).slice(2, 8), 'aac'),
-      filePath: localPath,
-      success(res) { resolve(res.fileID || ''); },
-      fail(err) { console.warn('[uploadVoice failed]', err); resolve(''); }
-    });
-  });
-}
-
-/** Convert cloud file IDs to temp display URLs (for images) */
-function getTempUrls(fileIDs) {
-  if (!_cloudAvailable() || !Array.isArray(fileIDs)) return Promise.resolve([]);
-  const valid = fileIDs.filter((id) => typeof id === 'string' && id.startsWith('cloud://'));
-  if (!valid.length) return Promise.resolve(fileIDs.map(() => ''));
-
-  return new Promise((resolve) => {
-    wx.cloud.getTempFileURL({
-      fileList: valid,
-      success(res) {
-        const map = {};
-        (res.fileList || []).forEach((item) => {
-          if (item.tempFileURL) map[item.fileID] = item.tempFileURL;
-        });
-        resolve(fileIDs.map((id) => map[id] || ''));
-      },
-      fail(err) {
-        console.warn('[getTempFileURL failed]', err);
-        resolve(fileIDs.map(() => ''));
-      }
+      fail(err) { console.warn('[uploadFile failed]', err); resolve(''); }
     });
   });
 }
@@ -116,9 +79,7 @@ function deleteCloudFiles(fileIDs) {
 }
 
 module.exports = {
-  uploadImage,
-  uploadVoice,
-  getTempUrls,
+  uploadFile,
   downloadCloudFile,
   resolveRecordMedia,
   deleteCloudFiles

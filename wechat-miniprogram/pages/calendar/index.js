@@ -1,10 +1,10 @@
 const { RecordCategory, OvertimeType, LeaveType } = require('../../utils/constants');
 const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate } = require('../../utils/storage');
-const { payrollEstimate } = require('../../utils/records');
+const { payrollEstimate, cloneImages, clonePeriods } = require('../../utils/records');
 const { formatDate, calcDuration, getPeriodKey, getMonthMeta } = require('../../utils/time');
 const { writeTempFile, handleGeneratedFile, exportRecordsToCSV, chooseAndReadJSON } = require('../../utils/files');
 const { sanitizeOneDecimalInput, parseOneDecimal } = require('../../utils/decimal');
-const { uploadImage, uploadVoice, getTempUrls, downloadCloudFile, resolveRecordMedia, deleteCloudFiles } = require('../../utils/cloud-files');
+const { uploadFile, downloadCloudFile, resolveRecordMedia, deleteCloudFiles } = require('../../utils/cloud-files');
 
 const SELECTED_MONTH_CURSOR_KEY = 'ot_selected_month_cursor';
 const CALC_PREFS_KEY = 'ot_stats_calc_prefs';
@@ -69,25 +69,6 @@ function buildNotePreview(note) {
 function isWeekendDate(dateStr) {
   const date = new Date(`${dateStr}T00:00:00`);
   return date.getDay() === 0 || date.getDay() === 6;
-}
-
-function clonePeriod(item) {
-  return {
-    id: item.id,
-    label: item.label,
-    start: item.start,
-    end: item.end
-  };
-}
-
-function clonePeriods(periods) {
-  if (!Array.isArray(periods)) return [];
-  return periods.map(clonePeriod);
-}
-
-function cloneImages(images) {
-  if (!Array.isArray(images)) return [];
-  return images.filter((item) => typeof item === 'string' && item).slice(0, 3);
 }
 
 function cloneForm(form) {
@@ -168,11 +149,14 @@ function buildSelectedDayState(dateStr, records) {
   };
 }
 
-function buildSettingsData(records, settings) {
-  const data = normalizeSettingsState(settings);
-  data.records = records;
-  data.settings = settings;
-  return data;
+function needsMediaResolve(r) {
+  if (!r) return false;
+  const hasMedia = (r.images && r.images.length) || r.voiceId;
+  if (!hasMedia) return false;
+  const noCache = !(r._resolvedUrls && r._resolvedUrls.length);
+  const expired = r._resolvedAt && Date.now() - r._resolvedAt > 5400000;
+  const hasBlank = r._resolvedUrls && r._resolvedUrls.some((url) => !url);
+  return noCache || expired || hasBlank;
 }
 
 function updateFormField(form, field, value) {
@@ -272,10 +256,6 @@ function buildDonut(records, monthKey, startDay) {
   };
 }
 
-function buildTrendData(records, rangeKey, anchorDate, startDay) {
-  return buildTrendForDate(records, rangeKey, anchorDate, startDay);
-}
-
 function buildTrendBars(trend) {
   let maxVal = 1;
   trend.forEach((item) => {
@@ -349,24 +329,25 @@ function saveCalcPrefs(calcStart, calcEnd) {
   wx.setStorageSync(CALC_PREFS_KEY, { calcStart, calcEnd });
 }
 
-function resolveCalcRange(selectedMonthCursor, savedPrefs, startDay) {
-  if (savedPrefs.calcStart && savedPrefs.calcEnd) {
-    return { calcStart: savedPrefs.calcStart, calcEnd: savedPrefs.calcEnd };
-  }
-  const targetDate = dateFromMonthCursor(selectedMonthCursor);
+function calcPeriodRange(targetDate, startDay) {
   if (!startDay || startDay <= 1) {
     return {
-      calcStart: `${selectedMonthCursor}-01`,
+      calcStart: `${monthCursorFromDate(targetDate)}-01`,
       calcEnd: formatDate(endOfMonth(targetDate))
     };
   }
   // 自定义考勤周期：上月 startDay 到本月 startDay-1
-  var periodStart = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, startDay);
-  var periodEnd = new Date(targetDate.getFullYear(), targetDate.getMonth(), startDay - 1);
   return {
-    calcStart: formatDate(periodStart),
-    calcEnd: formatDate(periodEnd)
+    calcStart: formatDate(new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, startDay)),
+    calcEnd: formatDate(new Date(targetDate.getFullYear(), targetDate.getMonth(), startDay - 1))
   };
+}
+
+function resolveCalcRange(selectedMonthCursor, savedPrefs, startDay) {
+  if (savedPrefs.calcStart && savedPrefs.calcEnd) {
+    return { calcStart: savedPrefs.calcStart, calcEnd: savedPrefs.calcEnd };
+  }
+  return calcPeriodRange(dateFromMonthCursor(selectedMonthCursor), startDay);
 }
 
 function buildMonthLabel(targetDate) {
@@ -489,7 +470,7 @@ Page({
   /* ========== chrome ========== */
 
   initChrome() {
-    const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+    const info = wx.getWindowInfo();
     const statusBarHeight = info.statusBarHeight || 20;
     const windowWidth = info.windowWidth || info.screenWidth || 375;
     const menuButton = wx.getMenuButtonBoundingClientRect ? wx.getMenuButtonBoundingClientRect() : null;
@@ -560,7 +541,6 @@ Page({
   this.donutWidth = 0;
   this.donutHeight = 0;
   this.donutSegments = [];         // 存储扇区角度范围，用于点击检测
-  this.donutInitFailures = 0;      // 初始化失败计数
   },
 
 
@@ -570,92 +550,59 @@ ensureDonutCanvas(retries = 5) {
         resolve(this.donutCtx);
         return;
       }
-      
-      // 如果已经失败过太多次，就不再尝试
-      if (this.donutInitFailures > 10) {
-        console.warn('Canvas initialization failed too many times, giving up');
-        resolve(null);
-        return;
-      }
-      
-      const winInfo = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+
+      const winInfo = wx.getWindowInfo();
       const dpr = winInfo.pixelRatio || 1;
       const windowWidth = winInfo.windowWidth || 375;
       const rpxRatio = windowWidth / 750;
 
-      const attemptQuery = () => {
-        this.createSelectorQuery()
-          .select('#overtimeDonut')
-          .node((res) => {
-            if (!res || !res.node) {
-              if (retries > 0) {
-                console.warn(`Canvas node not found, retry (${6 - retries}/5)`);
-                setTimeout(() => {
-                  this.ensureDonutCanvas(retries - 1).then(resolve);
-                }, 60);
-              } else {
-                this.donutInitFailures++;
-                console.warn('Canvas node not found after all retries');
-                resolve(null);
-              }
-              return;
-            }
-
-            try {
-              const canvas = res.node;
-              
-              // 检查 canvas 是否是有效的对象
-              if (!canvas || typeof canvas !== 'object') {
-                throw new Error('Canvas is not a valid object');
-              }
-
-              const widthPx = 238 * rpxRatio;
-              const heightPx = 238 * rpxRatio;
-              
-              // 尝试设置 Canvas 属性，如果失败则重试
-              if (typeof canvas.width !== 'number' || canvas.width === undefined) {
-                throw new Error('Canvas width property not writable');
-              }
-              
-              canvas.width = widthPx * dpr;
-              canvas.height = heightPx * dpr;
-              
-              // Canvas 样式可能不支持，所以放在 try-catch 中
-              if (canvas.style) {
-                canvas.style.width = widthPx + 'px';
-                canvas.style.height = heightPx + 'px';
-              }
-              
-              const ctx = canvas.getContext('2d');
-              if (!ctx) {
-                throw new Error('Failed to get 2d context from canvas');
-              }
-              
-              ctx.scale(dpr, dpr);
-              this.donutCanvas = canvas;
-              this.donutCtx = ctx;
-              this.donutWidth = widthPx;
-              this.donutHeight = heightPx;
-              this.donutCanvasReady = true;
-              this.donutInitFailures = 0;  // 成功时重置失败计数
-              resolve(ctx);
-            } catch (err) {
-              console.error('Error setting up canvas:', err);
-              if (retries > 0) {
-                console.warn(`Retrying canvas setup (${6 - retries}/5)`);
-                setTimeout(() => {
-                  this.ensureDonutCanvas(retries - 1).then(resolve);
-                }, 60);
-              } else {
-                this.donutInitFailures++;
-                resolve(null);
-              }
-            }
-          })
-          .exec();
+      const retry = () => {
+        if (retries > 0) {
+          setTimeout(() => this.ensureDonutCanvas(retries - 1).then(resolve), 60);
+        } else {
+          console.warn('Canvas initialization failed, giving up');
+          resolve(null);
+        }
       };
 
-      attemptQuery();
+      this.createSelectorQuery()
+        .select('#overtimeDonut')
+        .node((res) => {
+          if (!res || !res.node) {
+            retry();
+            return;
+          }
+
+          try {
+            const canvas = res.node;
+            const widthPx = 238 * rpxRatio;
+            const heightPx = 238 * rpxRatio;
+
+            canvas.width = widthPx * dpr;
+            canvas.height = heightPx * dpr;
+            if (canvas.style) {
+              canvas.style.width = widthPx + 'px';
+              canvas.style.height = heightPx + 'px';
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              throw new Error('Failed to get 2d context from canvas');
+            }
+
+            ctx.scale(dpr, dpr);
+            this.donutCanvas = canvas;
+            this.donutCtx = ctx;
+            this.donutWidth = widthPx;
+            this.donutHeight = heightPx;
+            this.donutCanvasReady = true;
+            resolve(ctx);
+          } catch (err) {
+            console.error('Error setting up canvas:', err);
+            retry();
+          }
+        })
+        .exec();
     });
   },
 
@@ -665,7 +612,7 @@ ensureDonutCanvas(retries = 5) {
   reloadAll() {
     const currentDate = dateFromMonthCursor(this.data.currentMonthCursor);
     const applyState = (records, settings) => {
-      this.setData(buildSettingsData(records, settings), () => {
+      this.setData({ ...normalizeSettingsState(settings), records, settings }, () => {
         this.refreshCalendar(currentDate);
         const quickAddFromStorage = !!wx.getStorageSync('ot_quick_add');
         if (quickAddFromStorage) wx.removeStorageSync('ot_quick_add');
@@ -677,16 +624,6 @@ ensureDonutCanvas(retries = 5) {
     };
 
     const selectedDate = this.data.selectedDate || formatDate(currentDate);
-
-    const needsMediaResolve = (r) => {
-      if (!r) return false;
-      const hasMedia = (r.images && r.images.length) || r.voiceId;
-      if (!hasMedia) return false;
-      const noCache = !(r._resolvedUrls && r._resolvedUrls.length);
-      const expired = r._resolvedAt && Date.now() - r._resolvedAt > 5400000;
-      const hasBlank = r._resolvedUrls && r._resolvedUrls.some((url) => !url);
-      return noCache || expired || hasBlank;
-    };
 
     const loadAndApply = () => {
       const localRecords = loadRecords();
@@ -772,8 +709,12 @@ ensureDonutCanvas(retries = 5) {
       let resolvedUrls = existing._resolvedUrls || [];
       let voiceLocalPath = existing._voiceLocalPath || '';
 
-      if (images.length && (!resolvedUrls.length || resolvedUrls[0] && resolvedUrls[0].startsWith('cloud://'))) {
-        resolvedUrls = await getTempUrls(images);
+      if (images.length && (!resolvedUrls.length || (resolvedUrls[0] && resolvedUrls[0].startsWith('cloud://')))) {
+        const paths = [];
+        for (const id of images) {
+          paths.push(id ? await downloadCloudFile(id) : '');
+        }
+        resolvedUrls = paths;
       }
       if (voiceId && !voiceLocalPath) {
         voiceLocalPath = await downloadCloudFile(voiceId);
@@ -931,7 +872,7 @@ ensureDonutCanvas(retries = 5) {
     wx.showLoading({ title: '上传中...' });
     const cloudIds = [];
     for (const tempPath of paths) {
-      const id = await uploadImage(tempPath);
+      const id = await uploadFile(tempPath, 'img');
       if (id) cloudIds.push(id);
     }
     wx.hideLoading();
@@ -1039,12 +980,7 @@ ensureDonutCanvas(retries = 5) {
 
   async resolveSelectedMedia() {
     const record = this.data.selectedDayRecord;
-    if (!record) return;
-    const urlsExpired = record._resolvedAt && Date.now() - record._resolvedAt > 5400000;
-    const needImages = record.images && record.images.length
-      && (!(record._resolvedUrls && record._resolvedUrls.length) || urlsExpired);
-    const needVoice = record.voiceId && !record._voiceLocalPath;
-    if (!needImages && !needVoice) return;
+    if (!record || !needsMediaResolve(record)) return;
 
     try {
       const resolved = await resolveRecordMedia(record);
@@ -1085,7 +1021,7 @@ ensureDonutCanvas(retries = 5) {
     }
     const form = updateFormField(this.data.form, '_voiceLocalPath', tempFilePath);
     this.setData({ form: updateFormField(form, 'voiceDuration', duration), isRecording: false });
-    uploadVoice(tempFilePath).then((voiceId) => {
+    uploadFile(tempFilePath, 'voice').then((voiceId) => {
       if (voiceId) {
         const f = updateFormField(this.data.form, 'voiceId', voiceId);
         this.setData({ form: f });
@@ -1183,7 +1119,7 @@ ensureDonutCanvas(retries = 5) {
     const yearSummary = buildYearSummaryForDate(records, targetDate);
     const allTimeSummary = buildAllTimeSummary(records);
     const donut = buildDonut(records, selectedMonthCursor, startDay);
-    const trend = buildTrendData(records, this.data.activeRange, targetDate, startDay);
+    const trend = buildTrendForDate(records, this.data.activeRange, targetDate, startDay);
     const trendBars = buildTrendBars(trend);
     const maxTrend = trend.reduce((best, item) =>
       (!best || Number(item.otHours || 0) > Number(best.otHours || 0) ? item : best), null);
@@ -1261,14 +1197,7 @@ ensureDonutCanvas(retries = 5) {
     const targetDate = new Date(current.getFullYear(), current.getMonth() + offset, 1);
     const selectedMonthCursor = monthCursorFromDate(targetDate);
     const startDay = this.data.settingPeriodStartDay || 1;
-    let calcStart, calcEnd;
-    if (startDay <= 1) {
-      calcStart = `${selectedMonthCursor}-01`;
-      calcEnd = formatDate(endOfMonth(targetDate));
-    } else {
-      calcStart = formatDate(new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, startDay));
-      calcEnd = formatDate(new Date(targetDate.getFullYear(), targetDate.getMonth(), startDay - 1));
-    }
+    const { calcStart, calcEnd } = calcPeriodRange(targetDate, startDay);
     this.pendingMonthCursor = selectedMonthCursor;
     wx.setStorageSync(SELECTED_MONTH_CURSOR_KEY, selectedMonthCursor);
     saveCalcPrefs(calcStart, calcEnd);
@@ -1570,13 +1499,6 @@ ensureDonutCanvas(retries = 5) {
     this.setData({ settingRestPeriods });
   },
 
-  onSettingsRestTimeChange(e) {
-    const index = Number(e.currentTarget.dataset.index);
-    const field = e.currentTarget.dataset.field;
-    const settingRestPeriods = updateSettingRestPeriods(this.data.settingRestPeriods, index, field, e.detail.value);
-    this.setData({ settingRestPeriods });
-  },
-
   addSettingsRest() {
     const settingRestPeriods = clonePeriods(this.data.settingRestPeriods);
     settingRestPeriods.push({ id: Date.now().toString(), label: '休息', start: '12:00', end: '13:00' });
@@ -1623,7 +1545,7 @@ ensureDonutCanvas(retries = 5) {
     this.closeTopMenu();
     writeTempFile(`overtime_backup_${Date.now()}.json`, JSON.stringify(this.data.records || [], null, 2))
       .then((path) => {
-        handleGeneratedFile(path, { kind: 'json', successText: '备份已生成' });
+        handleGeneratedFile(path, '备份已生成');
       })
       .catch(() => {
         wx.showToast({ title: '备份失败', icon: 'none' });
@@ -1655,7 +1577,7 @@ ensureDonutCanvas(retries = 5) {
     this.closeTopMenu();
     writeTempFile(`overtime_records_${Date.now()}.csv`, exportRecordsToCSV(this.data.records || []))
       .then((path) => {
-        handleGeneratedFile(path, { kind: 'csv', successText: '表格已导出' });
+        handleGeneratedFile(path, '表格已导出');
       })
       .catch(() => {
         wx.showToast({ title: '导出失败', icon: 'none' });

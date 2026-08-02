@@ -1,24 +1,42 @@
 <wxs module="fmt" src="../../utils/fmt.wxs"></wxs>
 
 <view class="container {{currentTab === 'calendar' ? 'calendar-page' : 'stats-page'}}">
-  <app-header
-    navTop="{{navTop}}"
-    navHeight="{{navHeight}}"
-    heroHeight="{{heroHeight}}"
-    capsuleSpace="{{capsuleSpace}}"
-    menuTop="{{menuTop}}"
-    showTopMenu="{{showTopMenu}}"
-    bind:togglemenu="toggleTopMenu"
-    bind:closemenu="closeTopMenu"
-    bind:opensettings="openSettings"
-    bind:goprivacy="goPrivacyPage"
-    bind:goabout="goAboutPage"
-    bind:gofeedback="goFeedbackPage"
-    bind:importjson="importJSON"
-    bind:backupjson="backupJSON"
-    bind:exporttable="exportTable"
-    bind:clearallrecords="clearAllRecords"
-  />
+  <view class="hero" style="padding-top: {{navTop}}px;">
+    <view class="nav" style="height: {{navHeight}}px; padding-right: {{capsuleSpace}}px;">
+      <view class="brand">
+        <view class="brand-icon">
+          <view class="brand-handle"></view>
+          <view class="brand-body"></view>
+        </view>
+        <view class="brand-copy">
+          <view class="brand-title">加班记录助手</view>
+          <view class="brand-sub">专业工时管理</view>
+        </view>
+      </view>
+      <view class="nav-actions">
+        <view class="icon-btn menu-btn solo" bindtap="toggleTopMenu">
+          <image class="menu-entry-image" src="../../setting.png" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+  </view>
+  <view class="hero-spacer" style="height: {{heroHeight}}px;"></view>
+
+  <view wx:if="{{showTopMenu}}" class="menu-mask" bindtap="closeTopMenu">
+    <view class="menu-card" catchtap="noop" style="top: {{menuTop}}px;">
+      <view class="menu-group-title">设置与帮助</view>
+      <view class="menu-item" bindtap="openSettings">工时设置</view>
+      <view class="menu-item" bindtap="goPrivacyPage">隐私说明</view>
+      <view class="menu-item" bindtap="goAboutPage">关于</view>
+      <view class="menu-item" bindtap="goFeedbackPage">意见反馈</view>
+      <view class="menu-divider"></view>
+      <view class="menu-group-title">数据管理</view>
+      <view class="menu-item" bindtap="importJSON">导入备份</view>
+      <view class="menu-item" bindtap="backupJSON">导出 JSON</view>
+      <view class="menu-item strong" bindtap="exportTable">导出表格</view>
+      <view class="menu-item danger" bindtap="clearAllRecords">清除全部记录</view>
+    </view>
+  </view>
 
   <!-- ====== 日历视图 ====== -->
   <block wx:if="{{currentTab === 'calendar'}}">
@@ -406,11 +424,11 @@
         <view wx:for="{{settingRestPeriods}}" wx:key="id" class="sheet-rest-row">
           <input class="sheet-rest-name" value="{{item.label}}" data-index="{{index}}" data-field="label" bindinput="onSettingsRestFieldInput" />
           <view class="sheet-rest-time-group">
-            <picker class="sheet-rest-picker" mode="time" value="{{item.start}}" data-index="{{index}}" data-field="start" bindchange="onSettingsRestTimeChange">
+            <picker class="sheet-rest-picker" mode="time" value="{{item.start}}" data-index="{{index}}" data-field="start" bindchange="onSettingsRestFieldInput">
               <view class="sheet-rest-time">{{item.start}}</view>
             </picker>
             <view class="sheet-rest-sep">-</view>
-            <picker class="sheet-rest-picker" mode="time" value="{{item.end}}" data-index="{{index}}" data-field="end" bindchange="onSettingsRestTimeChange">
+            <picker class="sheet-rest-picker" mode="time" value="{{item.end}}" data-index="{{index}}" data-field="end" bindchange="onSettingsRestFieldInput">
               <view class="sheet-rest-time">{{item.end}}</view>
             </picker>
           </view>

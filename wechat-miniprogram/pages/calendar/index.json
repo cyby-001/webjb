@@ -1,6 +1,3 @@
 {
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "app-header": "../../components/app-header/index"
-  }
+  "navigationStyle": "custom"
 }
