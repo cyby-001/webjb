@@ -1,7 +1,7 @@
 Page({
   copyIssueTemplate() {
     wx.setClipboardData({
-      data: '问题类型：\n问题描述：\n复现步骤：\n期望结果：\n设备型号：\n微信版本：\n截图说明：',
+      data: '问题类型：\n发生页面：\n问题描述：\n复现步骤：\n期望结果：\n设备型号：\n微信版本：\n截图说明：',
       success: () => {
         wx.showToast({ title: '问题反馈模板已复制', icon: 'success' });
       }

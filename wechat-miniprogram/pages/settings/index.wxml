@@ -1,0 +1,79 @@
+<view class="info-page settings-page">
+  <view class="hero-card">
+    <view class="hero-title">工时设置</view>
+    <view class="hero-sub">设置默认加班 / 请假时间、考勤周期、休息时段和云同步。</view>
+  </view>
+
+  <view class="info-card">
+    <view class="section-title">默认时间</view>
+    <view class="settings-label gap-top">加班默认开始</view>
+    <picker mode="time" value="{{settingOtDefaultStart}}" data-field="settingOtDefaultStart" bindchange="onSettingsTimeChange">
+      <view class="field-input">{{settingOtDefaultStart}}</view>
+    </picker>
+    <view class="settings-label gap-top">加班默认结束</view>
+    <picker mode="time" value="{{settingOtDefaultEnd}}" data-field="settingOtDefaultEnd" bindchange="onSettingsTimeChange">
+      <view class="field-input">{{settingOtDefaultEnd}}</view>
+    </picker>
+    <view class="settings-label gap-top">请假默认开始</view>
+    <picker mode="time" value="{{settingLeaveDefaultStart}}" data-field="settingLeaveDefaultStart" bindchange="onSettingsTimeChange">
+      <view class="field-input">{{settingLeaveDefaultStart}}</view>
+    </picker>
+    <view class="settings-label gap-top">请假默认结束</view>
+    <picker mode="time" value="{{settingLeaveDefaultEnd}}" data-field="settingLeaveDefaultEnd" bindchange="onSettingsTimeChange">
+      <view class="field-input">{{settingLeaveDefaultEnd}}</view>
+    </picker>
+  </view>
+
+  <view class="info-card">
+    <view class="section-title">考勤周期与显示</view>
+    <view class="settings-label gap-top">考勤周期起始日</view>
+    <view class="period-day-row">
+      <view class="period-day-label">每月</view>
+      <input class="period-day-input" type="number" value="{{settingPeriodStartDay}}" bindinput="onPeriodStartDayInput" />
+      <view class="period-day-label">号开始</view>
+    </view>
+    <view class="settings-label gap-top">时长显示模式</view>
+    <view class="df-row">
+      <view class="df-item {{settingDurationFormat === 'hour' ? 'active' : ''}}" data-mode="hour" bindtap="onDurationFormatChange">1.5h</view>
+      <view class="df-item {{settingDurationFormat === 'minute' ? 'active' : ''}}" data-mode="minute" bindtap="onDurationFormatChange">1h 30m</view>
+    </view>
+  </view>
+
+  <view class="info-card">
+    <view class="settings-row-top">
+      <view class="settings-label no-margin">休息时段（计算工时时自动扣除）</view>
+      <view class="sheet-add-btn" bindtap="addSettingsRest">+ 新增时段</view>
+    </view>
+    <view wx:for="{{settingRestPeriods}}" wx:key="id" class="sheet-rest-row">
+      <input class="sheet-rest-name" value="{{item.label}}" data-index="{{index}}" data-field="label" bindinput="onSettingsRestFieldInput" />
+      <view class="sheet-rest-time-group">
+        <picker class="sheet-rest-picker" mode="time" value="{{item.start}}" data-index="{{index}}" data-field="start" bindchange="onSettingsRestFieldInput">
+          <view class="sheet-rest-time">{{item.start}}</view>
+        </picker>
+        <view class="sheet-rest-sep">-</view>
+        <picker class="sheet-rest-picker" mode="time" value="{{item.end}}" data-index="{{index}}" data-field="end" bindchange="onSettingsRestFieldInput">
+          <view class="sheet-rest-time">{{item.end}}</view>
+        </picker>
+      </view>
+      <view class="sheet-trash-btn" data-index="{{index}}" bindtap="removeSettingsRest">
+        <view class="trash-icon">
+          <view class="trash-lid"></view>
+          <view class="trash-box">
+            <view class="trash-line"></view>
+            <view class="trash-line"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="info-card">
+    <view class="settings-row-top">
+      <view class="settings-label no-margin">云同步</view>
+      <switch checked="{{settingCloudSync}}" color="#4f7af5" bindchange="onCloudSyncChange" />
+    </view>
+    <view class="settings-sub">关闭后记录仅保存在本机，不再上传到云端</view>
+  </view>
+
+  <button class="btn-primary settings-save" bindtap="saveSettings">保存设置</button>
+</view>

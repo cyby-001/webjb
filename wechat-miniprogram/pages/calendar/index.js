@@ -1,10 +1,11 @@
 const { RecordCategory, OvertimeType, LeaveType } = require('../../utils/constants');
 const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate } = require('../../utils/storage');
-const { payrollEstimate, cloneImages, clonePeriods } = require('../../utils/records');
+const { payrollEstimate, cloneImages } = require('../../utils/records');
 const { formatDate, calcDuration, getPeriodKey, getMonthMeta } = require('../../utils/time');
 const { writeTempFile, handleGeneratedFile, exportRecordsToCSV, chooseAndReadJSON } = require('../../utils/files');
 const { sanitizeOneDecimalInput, parseOneDecimal } = require('../../utils/decimal');
 const { uploadFile, downloadCloudFile, resolveRecordMedia, deleteCloudFiles } = require('../../utils/cloud-files');
+const { applyTimeWatermark } = require('../../utils/watermark');
 
 const SELECTED_MONTH_CURSOR_KEY = 'ot_selected_month_cursor';
 const CALC_PREFS_KEY = 'ot_stats_calc_prefs';
@@ -89,13 +90,8 @@ function cloneForm(form) {
 
 function normalizeSettingsState(settings) {
   return {
-    settingOtDefaultStart: settings.otDefaultStart,
-    settingOtDefaultEnd: settings.otDefaultEnd,
-    settingLeaveDefaultStart: settings.leaveDefaultStart,
-    settingLeaveDefaultEnd: settings.leaveDefaultEnd,
     settingDurationFormat: settings.durationFormat || 'hour',
-    settingPeriodStartDay: settings.periodStartDay || 1,
-    settingRestPeriods: clonePeriods(settings.restPeriods)
+    settingPeriodStartDay: settings.periodStartDay || 1
   };
 }
 
@@ -121,7 +117,7 @@ function buildMonthDays(currentDate, records, selectedDate) {
   for (let day = 1; day <= daysInMonth; day += 1) {
     const date = new Date(year, month, day);
     const dateStr = formatDate(date);
-    const record = records.find((item) => item.date === dateStr);
+    const dayRecords = records.filter((item) => item.date === dateStr);
     days.push({
       empty: false,
       key: dateStr,
@@ -131,9 +127,10 @@ function buildMonthDays(currentDate, records, selectedDate) {
       isWeekend: date.getDay() === 0 || date.getDay() === 6,
       isToday: formatDate(new Date()) === dateStr,
       lunarText: getPseudoLunarText(day),
-      record,
-      notePreview: buildNotePreview(record && record.note),
-      tagClass: recordTagClass(record)
+      dayRecords,
+      dayTotal: Number(dayRecords.reduce((sum, r) => sum + Number(r.duration || 0), 0).toFixed(1)),
+      notePreview: buildNotePreview(dayRecords[0] && dayRecords[0].note),
+      tagClass: recordTagClass(dayRecords[0])
     });
   }
 
@@ -141,11 +138,10 @@ function buildMonthDays(currentDate, records, selectedDate) {
 }
 
 function buildSelectedDayState(dateStr, records) {
-  const record = records.find((item) => item.date === dateStr) || null;
   return {
     selectedDate: dateStr,
     selectedDateText: dateStr ? formatDisplayDate(dateStr) : '',
-    selectedDayRecord: record
+    selectedDayRecords: dateStr ? records.filter((item) => item.date === dateStr) : []
   };
 }
 
@@ -162,13 +158,6 @@ function needsMediaResolve(r) {
 function updateFormField(form, field, value) {
   const next = cloneForm(form);
   next[field] = value;
-  return next;
-}
-
-function updateSettingRestPeriods(periods, index, field, value) {
-  const next = clonePeriods(periods);
-  if (!next[index]) return next;
-  next[index][field] = value;
   return next;
 }
 
@@ -372,13 +361,7 @@ Page({
     capsuleSpace: 96,
     menuTop: 72,
     showTopMenu: false,
-    showSettingsSheet: false,
     records: [],
-    settingOtDefaultStart: '18:00',
-    settingOtDefaultEnd: '20:00',
-    settingLeaveDefaultStart: '08:00',
-    settingLeaveDefaultEnd: '17:00',
-    settingRestPeriods: [],
     settingDurationFormat: 'hour',
     settingPeriodStartDay: 1,
 
@@ -392,7 +375,7 @@ Page({
     showEditor: false,
     selectedDate: '',
     selectedDateText: '',
-    selectedDayRecord: null,
+    selectedDayRecords: [],
     editingRecordId: '',
     form: {
       category: RecordCategory.OVERTIME,
@@ -412,7 +395,7 @@ Page({
     currentTypeOptions: [OvertimeType.WEEKDAY, OvertimeType.WEEKEND, OvertimeType.HOLIDAY],
     isRecording: false,
     isFormVoicePlaying: false,
-    isCardVoicePlaying: false,
+    cardVoicePlayingId: '',
 
     /* --- stats view --- */
     monthLabel: '',
@@ -497,16 +480,16 @@ Page({
     });
 
     this.innerAudioContext.onEnded(() => {
-      this.setData({ isFormVoicePlaying: false, isCardVoicePlaying: false });
+      this.setData({ isFormVoicePlaying: false, cardVoicePlayingId: '' });
     });
 
     this.innerAudioContext.onStop(() => {
-      this.setData({ isFormVoicePlaying: false, isCardVoicePlaying: false });
+      this.setData({ isFormVoicePlaying: false, cardVoicePlayingId: '' });
     });
 
     this.innerAudioContext.onError((err) => {
       console.warn('[audio error]', err);
-      this.setData({ isFormVoicePlaying: false, isCardVoicePlaying: false });
+      this.setData({ isFormVoicePlaying: false, cardVoicePlayingId: '' });
     });
   },
 
@@ -618,7 +601,7 @@ ensureDonutCanvas(retries = 5) {
         if (quickAddFromStorage) wx.removeStorageSync('ot_quick_add');
         if (quickAddFromStorage || this.pendingQuickAdd) {
           this.pendingQuickAdd = false;
-          this.openEditorForDate(formatDate(new Date()), true);
+          this.openEditorForDate(formatDate(new Date()), null);
         }
       });
     };
@@ -696,8 +679,8 @@ ensureDonutCanvas(retries = 5) {
 
   /* ========== calendar: editor ========== */
 
-  async openEditorForDate(dateStr, forceNew) {
-    const existing = forceNew ? null : this.data.records.find((item) => item.date === dateStr);
+  async openEditorForDate(dateStr, recordId) {
+    const existing = recordId ? this.data.records.find((item) => item.id === recordId) : null;
     const targetDate = new Date(`${dateStr}T00:00:00`);
     const settings = this.data.settings;
     let form;
@@ -770,7 +753,7 @@ ensureDonutCanvas(retries = 5) {
     if (this.innerAudioContext) {
       this.innerAudioContext.stop();
     }
-    this.setData({ showEditor: false, editingRecordId: '', isRecording: false, isFormVoicePlaying: false, isCardVoicePlaying: false });
+    this.setData({ showEditor: false, editingRecordId: '', isRecording: false, isFormVoicePlaying: false, cardVoicePlayingId: '' });
   },
 
   switchCategory(e) {
@@ -837,7 +820,7 @@ ensureDonutCanvas(retries = 5) {
     const currentImages = cloneImages(this.data.form.images);
     const remainCount = 3 - currentImages.length;
     if (remainCount <= 0) {
-      wx.showToast({ title: '最多添加3张图片', icon: 'none' });
+      wx.showToast({ title: '最多添加 3 张图片', icon: 'none' });
       return;
     }
 
@@ -869,10 +852,11 @@ ensureDonutCanvas(retries = 5) {
       return;
     }
 
-    wx.showLoading({ title: '上传中...' });
+    wx.showLoading({ title: '处理中...' });
     const cloudIds = [];
     for (const tempPath of paths) {
-      const id = await uploadFile(tempPath, 'img');
+      const stamped = await applyTimeWatermark(tempPath);
+      const id = await uploadFile(stamped, 'img');
       if (id) cloudIds.push(id);
     }
     wx.hideLoading();
@@ -896,8 +880,9 @@ ensureDonutCanvas(retries = 5) {
 
   previewSelectedDayImage(e) {
     const index = Number(e.currentTarget.dataset.index);
-    const record = this.data.selectedDayRecord;
-    const urls = (record && record._resolvedUrls || []).filter(Boolean);
+    const record = this.data.selectedDayRecords.find((r) => r.id === e.currentTarget.dataset.id);
+    if (!record) return;
+    const urls = (record._resolvedUrls || []).filter(Boolean);
     if (!urls[index]) return;
     wx.previewImage({ urls, current: urls[index] });
   },
@@ -943,7 +928,7 @@ ensureDonutCanvas(retries = 5) {
       }
     }
 
-    const records = this.data.records.filter((item) => item.date !== this.data.selectedDate && item.id !== recordId);
+    const records = this.data.records.filter((item) => item.id !== recordId);
     records.push(nextRecord);
     records.sort((a, b) => (a.date < b.date ? 1 : -1));
     saveRecords(records);
@@ -979,14 +964,16 @@ ensureDonutCanvas(retries = 5) {
   /* ========== calendar: media ========== */
 
   async resolveSelectedMedia() {
-    const record = this.data.selectedDayRecord;
-    if (!record || !needsMediaResolve(record)) return;
+    const dayRecords = this.data.selectedDayRecords;
+    if (!dayRecords || !dayRecords.length) return;
 
     try {
-      const resolved = await resolveRecordMedia(record);
-      if (resolved) {
-        this.setData({ selectedDayRecord: resolved });
+      for (const record of dayRecords) {
+        if (needsMediaResolve(record)) {
+          await resolveRecordMedia(record);
+        }
       }
+      this.setData({ selectedDayRecords: dayRecords });
     } catch (err) {
       console.warn('[resolve selected media failed]', err);
     }
@@ -1002,7 +989,7 @@ ensureDonutCanvas(retries = 5) {
     }
 
     this.innerAudioContext.stop();
-    this.setData({ isFormVoicePlaying: false, isCardVoicePlaying: false });
+    this.setData({ isFormVoicePlaying: false, cardVoicePlayingId: '' });
 
     this.recorderManager.start({
       duration: 60000,
@@ -1038,30 +1025,31 @@ ensureDonutCanvas(retries = 5) {
       return;
     }
 
-    this.setData({ isCardVoicePlaying: false });
+    this.setData({ cardVoicePlayingId: '' });
     this.innerAudioContext.src = localPath;
     this.innerAudioContext.play();
     this.setData({ isFormVoicePlaying: true });
   },
 
-  async toggleCardVoicePlay() {
-    const record = this.data.selectedDayRecord;
+  async toggleCardVoicePlay(e) {
+    const record = this.data.selectedDayRecords.find((r) => r.id === e.currentTarget.dataset.id);
     if (!record || !record.voiceDuration) return;
 
-    if (this.data.isCardVoicePlaying) {
+    if (this.data.cardVoicePlayingId === record.id) {
       this.innerAudioContext.stop();
+      this.setData({ cardVoicePlayingId: '' });
       return;
     }
 
-    this.setData({ isFormVoicePlaying: false });
+    this.setData({ isFormVoicePlaying: false, cardVoicePlayingId: record.id });
 
     let playPath = record._voiceLocalPath;
     if (!playPath) {
       if (!record.voiceId) {
-        wx.showToast({ title: '语音同步中，请稍后', icon: 'none' });
+        wx.showToast({ title: '语音同步中，请稍候', icon: 'none' });
         return;
       }
-      wx.showLoading({ title: '加载语音...' });
+      wx.showLoading({ title: '加载语音中…' });
       playPath = await downloadCloudFile(record.voiceId);
       if (playPath) {
         playPath = await this.copyToPermanent(playPath);
@@ -1076,7 +1064,12 @@ ensureDonutCanvas(retries = 5) {
 
     this.innerAudioContext.src = playPath;
     this.innerAudioContext.play();
-    this.setData({ isCardVoicePlaying: true });
+  },
+
+  editSelectedRecord(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id || !this.data.selectedDate) return;
+    this.openEditorForDate(this.data.selectedDate, id);
   },
 
   copyToPermanent(tempPath) {
@@ -1476,67 +1469,9 @@ ensureDonutCanvas(retries = 5) {
     wx.navigateTo({ url: '/pages/feedback/index' });
   },
 
-  openSettings() {
-    const data = normalizeSettingsState(loadSettings());
-    data.showSettingsSheet = true;
+  goSettingsPage() {
     this.closeTopMenu();
-    this.setData(data);
-  },
-
-  closeSettingsSheet() {
-    this.setData({ showSettingsSheet: false });
-  },
-
-  onSettingsTimeChange(e) {
-    const field = e.currentTarget.dataset.field;
-    this.setData({ [field]: e.detail.value });
-  },
-
-  onSettingsRestFieldInput(e) {
-    const index = Number(e.currentTarget.dataset.index);
-    const field = e.currentTarget.dataset.field;
-    const settingRestPeriods = updateSettingRestPeriods(this.data.settingRestPeriods, index, field, e.detail.value);
-    this.setData({ settingRestPeriods });
-  },
-
-  addSettingsRest() {
-    const settingRestPeriods = clonePeriods(this.data.settingRestPeriods);
-    settingRestPeriods.push({ id: Date.now().toString(), label: '休息', start: '12:00', end: '13:00' });
-    this.setData({ settingRestPeriods });
-  },
-
-  removeSettingsRest(e) {
-    const index = Number(e.currentTarget.dataset.index);
-    this.setData({ settingRestPeriods: this.data.settingRestPeriods.filter((_, i) => i !== index) });
-  },
-
-  saveSettingsSheet() {
-    const settings = {
-      otDefaultStart: this.data.settingOtDefaultStart,
-      otDefaultEnd: this.data.settingOtDefaultEnd,
-      leaveDefaultStart: this.data.settingLeaveDefaultStart,
-      leaveDefaultEnd: this.data.settingLeaveDefaultEnd,
-      durationFormat: this.data.settingDurationFormat || 'hour',
-      periodStartDay: Number(this.data.settingPeriodStartDay) || 1,
-      restPeriods: clonePeriods(this.data.settingRestPeriods)
-    };
-    const data = normalizeSettingsState(settings);
-    data.settings = settings;
-    data.showSettingsSheet = false;
-    saveSettings(settings);
-    this.setData(data);
-    wx.showToast({ title: '设置已保存', icon: 'success' });
-  },
-
-  onDurationFormatChange(e) {
-    const mode = e.currentTarget.dataset.mode;
-    if (!mode) return;
-    this.setData({ settingDurationFormat: mode });
-  },
-
-  onPeriodStartDayInput(e) {
-    // 允许临时清空以便用户输入，保存时再规整
-    this.setData({ settingPeriodStartDay: e.detail.value });
+    wx.navigateTo({ url: '/pages/settings/index' });
   },
 
   /* ========== shared: import / export ========== */
@@ -1557,7 +1492,7 @@ ensureDonutCanvas(retries = 5) {
       .then((parsed) => {
         wx.showModal({
           title: '确认导入',
-          content: `检测到 ${parsed.length} 条记录，导入会覆盖当前数据。`,
+          content: `检测到 ${parsed.length} 条记录，导入将覆盖当前数据。`,
           success: (res) => {
             if (!res.confirm) return;
             saveRecords(parsed);
@@ -1614,7 +1549,7 @@ ensureDonutCanvas(retries = 5) {
 
   quickAdd() {
     const dateStr = this.data.selectedDate || formatDate(new Date());
-    this.openEditorForDate(dateStr, false);
+    this.openEditorForDate(dateStr, null);
   },
 
   /* ========== share ========== */

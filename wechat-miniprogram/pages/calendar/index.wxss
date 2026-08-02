@@ -386,6 +386,41 @@
   font-size: 25rpx;
 }
 
+.day-record-item {
+  margin-top: 14rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 18rpx;
+  background: #f8fbff;
+}
+
+.day-record-top {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.day-record-time {
+  flex: 1;
+  min-width: 0;
+  color: #64748b;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.day-record-dur {
+  color: #334155;
+  font-size: 26rpx;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.day-record-note {
+  margin-top: 8rpx;
+  color: #475569;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
 .selected-image-row {
   margin-top: 16rpx;
   display: flex;
@@ -747,249 +782,6 @@
 .delete-btn { width: 200rpx; }
 .save-btn { flex: 1; }
 .leave-save { background: linear-gradient(135deg, #a855f7, #ec4899); }
-.settings-sheet {
-  width: 100%;
-  background: #ffffff;
-  border-radius: 30rpx 30rpx 0 0;
-  overflow: hidden;
-  max-height: 90vh;
-}
-
-.settings-headline {
-  padding: 18rpx 22rpx 20rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(135deg, #2f3d55, #253348);
-  color: #ffffff;
-}
-
-.settings-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.settings-title-icon {
-  width: 28rpx;
-  height: 28rpx;
-  display: block;
-}
-
-.settings-title-text {
-  font-size: 30rpx;
-  font-weight: 800;
-}
-
-.sheet-close.dark {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.settings-body-sheet {
-  padding: 22rpx 20rpx 24rpx;
-}
-
-.settings-label {
-  margin-top: 6rpx;
-  margin-bottom: 12rpx;
-  color: #94a3b8;
-  font-size: 23rpx;
-  font-weight: 700;
-}
-
-.settings-label.no-margin {
-  margin: 0;
-}
-
-.gap-top {
-  margin-top: 22rpx;
-}
-
-/* 考勤周期起始日 */
-.period-day-row {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  margin-top: 14rpx;
-}
-
-.period-day-label {
-  color: #64748b;
-  font-size: 25rpx;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.period-day-input {
-  width: 100rpx;
-  height: 64rpx;
-  border-radius: 16rpx;
-  background: #f1f5fb;
-  color: #1f2937;
-  font-size: 31rpx;
-  font-weight: 800;
-  text-align: center;
-}
-
-/* 时长显示模式切换 */
-.df-row {
-  display: flex;
-  gap: 12rpx;
-  margin-top: 14rpx;
-}
-
-.df-item {
-  flex: 1;
-  height: 64rpx;
-  border-radius: 16rpx;
-  background: #f1f5fb;
-  color: #94a3b8;
-  font-size: 25rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-
-.df-item.active {
-  background: #4f7af5;
-  color: #ffffff;
-  box-shadow: 0 6rpx 14rpx rgba(79, 122, 245, 0.25);
-}
-
-.field-sub {
-  margin-bottom: 8rpx;
-  color: #9aa8bc;
-  font-size: 22rpx;
-  font-weight: 700;
-}
-
-.settings-row-top {
-  margin-top: 22rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.sheet-add-btn {
-  min-width: 112rpx;
-  height: 48rpx;
-  padding: 0 16rpx;
-  border-radius: 16rpx;
-  background: #eef4ff;
-  color: #4f7af5;
-  font-size: 22rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sheet-rest-row {
-  margin-top: 12rpx;
-  padding: 14rpx;
-  border-radius: 20rpx;
-  background: #f8fbff;
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.sheet-rest-name {
-  flex: 1;
-  min-width: 0;
-  height: 60rpx;
-  border-radius: 16rpx;
-  background: #ffffff;
-  border: 1rpx solid #dde6f0;
-  color: #64748b;
-  font-size: 25rpx;
-  text-align: center;
-}
-
-.sheet-rest-time-group {
-  flex: 2.4;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.sheet-rest-picker {
-  flex: 1;
-}
-
-.sheet-rest-time {
-  width: 100%;
-  height: 60rpx;
-  border-radius: 16rpx;
-  background: #ffffff;
-  border: 1rpx solid #dde6f0;
-  color: #334155;
-  font-size: 31rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sheet-rest-sep {
-  width: 18rpx;
-  text-align: center;
-  color: #94a3b8;
-  font-size: 28rpx;
-  font-weight: 700;
-}
-
-.sheet-trash-btn {
-  width: 40rpx;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-shrink: 0;
-}
-
-.trash-icon {
-  width: 26rpx;
-  height: 28rpx;
-  position: relative;
-}
-
-.trash-lid {
-  position: absolute;
-  top: 1rpx;
-  left: 5rpx;
-  width: 16rpx;
-  height: 4rpx;
-  background: #fb7185;
-  border-radius: 4rpx;
-}
-
-.trash-box {
-  position: absolute;
-  left: 4rpx;
-  right: 4rpx;
-  top: 7rpx;
-  bottom: 1rpx;
-  border: 3rpx solid #fb7185;
-  border-top-width: 4rpx;
-  border-radius: 4rpx 4rpx 6rpx 6rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4rpx;
-}
-
-.trash-line {
-  width: 2rpx;
-  height: 10rpx;
-  background: #fb7185;
-  border-radius: 2rpx;
-}
-
-.settings-save {
-  margin-top: 26rpx;
-}
 
 /* ---- voice ---- */
 .voice-add-btn {

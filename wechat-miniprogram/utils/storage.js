@@ -4,8 +4,17 @@ const { cloneImages, clonePeriods } = require('./records');
 const CLOUD_COLLECTION = 'ot_profiles';
 const LOCAL_META_KEYS = {
   CLOUD_DOC_ID: 'ot_cloud_doc_id',
-  UPDATED_AT: 'ot_state_updated_at'
+  UPDATED_AT: 'ot_state_updated_at',
+  CLOUD_SYNC: 'ot_cloud_sync_enabled'
 };
+
+function isCloudSyncEnabled() {
+  return wx.getStorageSync(LOCAL_META_KEYS.CLOUD_SYNC) !== false;
+}
+
+function setCloudSyncEnabled(enabled) {
+  wx.setStorageSync(LOCAL_META_KEYS.CLOUD_SYNC, enabled !== false);
+}
 
 function cloneRecords(records) {
   if (!Array.isArray(records)) return [];
@@ -185,12 +194,16 @@ async function updateCloudProfile(docId, state) {
 }
 
 async function pushStateToCloud(state) {
-  const db = getCloudDatabase();
-  if (!db) {
-    return { cloudSynced: false, reason: 'cloud-unavailable' };
+  const nextState = writeLocalState(state);
+  if (!isCloudSyncEnabled()) {
+    return { cloudSynced: false, state: nextState, reason: 'cloud-disabled' };
   }
 
-  const nextState = writeLocalState(state);
+  const db = getCloudDatabase();
+  if (!db) {
+    return { cloudSynced: false, state: nextState, reason: 'cloud-unavailable' };
+  }
+
   try {
     const profile = await readCloudProfile();
     if (profile && profile.docId) {
@@ -219,6 +232,7 @@ function mergeRuntimeCache(cloudRecords, localRecords) {
 
 async function syncUserData() {
   const localState = getLocalState();
+  if (!isCloudSyncEnabled()) return localState;
   const db = getCloudDatabase();
   if (!db) return localState;
 
@@ -299,5 +313,7 @@ module.exports = {
   loadHourlyRate,
   saveHourlyRate,
   loadSettings,
-  saveSettings
+  saveSettings,
+  isCloudSyncEnabled,
+  setCloudSyncEnabled
 };

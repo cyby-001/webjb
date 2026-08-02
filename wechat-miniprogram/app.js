@@ -13,7 +13,7 @@ App({
     updateManager.onUpdateReady(() => {
       wx.showModal({
         title: '新版本已就绪',
-        content: '点击确认重启以使用最新功能',
+        content: '点击确认，重启后使用最新功能',
         showCancel: false,
         confirmText: '立即重启',
         success(res) {

@@ -25,7 +25,7 @@
   <view wx:if="{{showTopMenu}}" class="menu-mask" bindtap="closeTopMenu">
     <view class="menu-card" catchtap="noop" style="top: {{menuTop}}px;">
       <view class="menu-group-title">设置与帮助</view>
-      <view class="menu-item" bindtap="openSettings">工时设置</view>
+      <view class="menu-item" bindtap="goSettingsPage">工时设置</view>
       <view class="menu-item" bindtap="goPrivacyPage">隐私说明</view>
       <view class="menu-item" bindtap="goAboutPage">关于</view>
       <view class="menu-item" bindtap="goFeedbackPage">意见反馈</view>
@@ -54,9 +54,9 @@
         <view wx:if="{{!item.empty}}" class="day-cell {{item.isToday ? 'today' : ''}} {{item.selected ? 'selected' : ''}}" data-date="{{item.dateStr}}" bindtap="onTapDay">
           <view class="day-number {{item.isWeekend ? 'weekend' : ''}}">{{item.day}}</view>
           <view class="day-lunar">{{item.lunarText}}</view>
-          <view wx:if="{{item.record}}" class="day-badge {{item.tagClass}}">{{fmt.fmtDur(item.record.duration, settingDurationFormat)}}</view>
+          <view wx:if="{{item.dayRecords.length}}" class="day-badge {{item.tagClass}}">{{fmt.fmtDur(item.dayTotal, settingDurationFormat)}}</view>
           <view wx:if="{{item.notePreview}}" class="day-note">{{item.notePreview}}</view>
-          <view wx:if="{{item.isToday && !item.record}}" class="today-dot"></view>
+          <view wx:if="{{item.isToday && !item.dayRecords.length}}" class="today-dot"></view>
         </view>
         <view wx:else class="day-cell empty"></view>
       </block>
@@ -70,21 +70,29 @@
         <view class="selected-detail-caption">每日记录</view>
         <view class="selected-detail-title">{{selectedDateText}}</view>
       </view>
-      <view wx:if="{{selectedDayRecord}}" class="selected-detail-badge {{selectedDayRecord.category === '请假' ? 'leave' : 'ot'}}">{{fmt.fmtDur(selectedDayRecord.duration, settingDurationFormat)}}</view>
     </view>
-    <view wx:if="{{selectedDayRecord && selectedDayRecord.note}}" class="selected-note">{{selectedDayRecord.note}}</view>
-    <view wx:else class="selected-empty">当天暂无备注</view>
-    <view wx:if="{{(selectedDayRecord && selectedDayRecord.images && selectedDayRecord.images.length) || (selectedDayRecord && selectedDayRecord.voiceDuration)}}" class="selected-image-row">
-      <image wx:for="{{selectedDayRecord._resolvedUrls}}" wx:key="*this" class="selected-image" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="previewSelectedDayImage" />
-      <view wx:if="{{selectedDayRecord.voiceDuration}}" class="voice-bubble-sm" bindtap="toggleCardVoicePlay">
-        <view class="voice-bubble-dur">{{selectedDayRecord.voiceDuration}}"</view>
-        <view class="voice-waves {{isCardVoicePlaying ? 'playing' : ''}}">
-          <view class="wave-bar"></view>
-          <view class="wave-bar"></view>
-          <view class="wave-bar"></view>
+    <block wx:if="{{selectedDayRecords.length}}">
+      <view class="day-record-item" wx:for="{{selectedDayRecords}}" wx:key="id" data-id="{{item.id}}" bindtap="editSelectedRecord">
+        <view class="day-record-top">
+          <view class="type-badge {{item.category === '请假' ? 'leave' : 'weekday'}}">{{item.category === '请假' ? '请假' : '加班'}}</view>
+          <view class="day-record-time">{{item.startTime}}-{{item.endTime}}</view>
+          <view class="day-record-dur">{{fmt.fmtDur(item.duration, settingDurationFormat)}}</view>
+        </view>
+        <view wx:if="{{item.note}}" class="day-record-note">{{item.note}}</view>
+        <view wx:if="{{(item.images && item.images.length) || item.voiceDuration}}" class="selected-image-row">
+          <image wx:for="{{item._resolvedUrls}}" wx:key="*this" wx:for-item="url" class="selected-image" src="{{url}}" mode="aspectFill" data-id="{{item.id}}" data-index="{{index}}" catchtap="previewSelectedDayImage" />
+          <view wx:if="{{item.voiceDuration}}" class="voice-bubble-sm" data-id="{{item.id}}" catchtap="toggleCardVoicePlay">
+            <view class="voice-bubble-dur">{{item.voiceDuration}}"</view>
+            <view class="voice-waves {{cardVoicePlayingId === item.id ? 'playing' : ''}}">
+              <view class="wave-bar"></view>
+              <view class="wave-bar"></view>
+              <view class="wave-bar"></view>
+            </view>
+          </view>
         </view>
       </view>
-    </view>
+    </block>
+    <view wx:else class="selected-empty">当天暂无记录</view>
   </view>
   </block>
 
@@ -190,7 +198,7 @@
 
   <view class="card panel">
     <view class="panel-top detail-top">
-      <view class="panel-title">记录明细 <text class="detail-sub">(按最近范围筛选)</text></view>
+      <view class="panel-title">记录明细 <text class="detail-sub">（按所选时间范围）</text></view>
       <view class="detail-filters">
         <view class="filter-pill {{detailFilter === 'all' ? 'active' : ''}}" data-filter="all" bindtap="setDetailFilter">全部</view>
         <view class="filter-pill {{detailFilter === 'ot' ? 'active' : ''}}" data-filter="ot" bindtap="setDetailFilter">加班</view>
@@ -223,7 +231,7 @@
       </view>
     </view>
     <view class="calc-body">
-      <view class="calc-tip">按时间范围和加班类型自动估算，结果会随输入即时更新，请以实际工资规则为准。</view>
+      <view class="calc-tip">根据时间范围和加班类型自动估算，输入变化实时更新，结果请以实际工资规则为准。</view>
       <view class="form-row">
         <view class="f-label">开始日期</view>
         <picker mode="date" value="{{calcStart}}" data-field="calcStart" bindchange="onCalcDateChange">
@@ -337,7 +345,7 @@
         </view>
         <view class="field-block">
           <view class="field-label">备注</view>
-          <textarea class="note-area" value="{{form.note}}" maxlength="100" bindinput="onNoteInput" placeholder="写点备注..." />
+          <textarea class="note-area" value="{{form.note}}" maxlength="100" bindinput="onNoteInput" placeholder="填写备注，如加班原因…" />
         </view>
         <view class="field-block">
           <view class="image-head">
@@ -376,74 +384,5 @@
       </view>
     </view>
   </view>
-
-  <!-- ====== 设置面板（共享） ====== -->
-  <view wx:if="{{showSettingsSheet}}" class="sheet-mask" bindtap="closeSettingsSheet">
-    <view class="settings-sheet" catchtap="noop">
-      <view class="sheet-grabber"></view>
-      <view class="settings-headline">
-        <view class="settings-title-wrap">
-          <image class="settings-title-icon" src="../../setting.png" mode="aspectFit" />
-          <view class="settings-title-text">数据设置</view>
-        </view>
-        <view class="sheet-close dark" bindtap="closeSettingsSheet">x</view>
-      </view>
-      <view class="settings-body-sheet">
-        <view class="settings-label">加班默认开始</view>
-        <picker mode="time" value="{{settingOtDefaultStart}}" data-field="settingOtDefaultStart" bindchange="onSettingsTimeChange">
-          <view class="field-input">{{settingOtDefaultStart}}</view>
-        </picker>
-        <view class="settings-label">加班默认结束</view>
-        <picker mode="time" value="{{settingOtDefaultEnd}}" data-field="settingOtDefaultEnd" bindchange="onSettingsTimeChange">
-          <view class="field-input">{{settingOtDefaultEnd}}</view>
-        </picker>
-        <view class="settings-label gap-top">请假默认时间</view>
-        <view class="field-sub">开始时间</view>
-        <picker mode="time" value="{{settingLeaveDefaultStart}}" data-field="settingLeaveDefaultStart" bindchange="onSettingsTimeChange">
-          <view class="field-input">{{settingLeaveDefaultStart}}</view>
-        </picker>
-        <view class="field-sub">结束时间</view>
-        <picker mode="time" value="{{settingLeaveDefaultEnd}}" data-field="settingLeaveDefaultEnd" bindchange="onSettingsTimeChange">
-          <view class="field-input">{{settingLeaveDefaultEnd}}</view>
-        </picker>
-        <view class="settings-label gap-top">考勤周期起始日</view>
-        <view class="period-day-row">
-          <view class="period-day-label">每月</view>
-          <input class="period-day-input" type="number" value="{{settingPeriodStartDay}}" bindinput="onPeriodStartDayInput" />
-          <view class="period-day-label">号开始</view>
-        </view>
-        <view class="settings-label gap-top">时长显示模式</view>
-        <view class="df-row">
-          <view class="df-item {{settingDurationFormat === 'hour' ? 'active' : ''}}" data-mode="hour" bindtap="onDurationFormatChange">1.5h</view>
-          <view class="df-item {{settingDurationFormat === 'minute' ? 'active' : ''}}" data-mode="minute" bindtap="onDurationFormatChange">1h 30m</view>
-        </view>
-        <view class="settings-row-top">
-          <view class="settings-label no-margin">休息时段（计算工时时自动扣除）</view>
-          <view class="sheet-add-btn" bindtap="addSettingsRest">+ 新增时段</view>
-        </view>
-        <view wx:for="{{settingRestPeriods}}" wx:key="id" class="sheet-rest-row">
-          <input class="sheet-rest-name" value="{{item.label}}" data-index="{{index}}" data-field="label" bindinput="onSettingsRestFieldInput" />
-          <view class="sheet-rest-time-group">
-            <picker class="sheet-rest-picker" mode="time" value="{{item.start}}" data-index="{{index}}" data-field="start" bindchange="onSettingsRestFieldInput">
-              <view class="sheet-rest-time">{{item.start}}</view>
-            </picker>
-            <view class="sheet-rest-sep">-</view>
-            <picker class="sheet-rest-picker" mode="time" value="{{item.end}}" data-index="{{index}}" data-field="end" bindchange="onSettingsRestFieldInput">
-              <view class="sheet-rest-time">{{item.end}}</view>
-            </picker>
-          </view>
-          <view class="sheet-trash-btn" data-index="{{index}}" bindtap="removeSettingsRest">
-            <view class="trash-icon">
-              <view class="trash-lid"></view>
-              <view class="trash-box">
-                <view class="trash-line"></view>
-                <view class="trash-line"></view>
-              </view>
-            </view>
-          </view>
-        </view>
-        <button class="btn-primary settings-save" bindtap="saveSettingsSheet">保存设置</button>
-      </view>
-    </view>
-  </view>
 </view>
+

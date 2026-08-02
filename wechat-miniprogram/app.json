@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/calendar/index",
+    "pages/settings/index",
     "pages/privacy/index",
     "pages/about/index",
     "pages/feedback/index"
