@@ -1,4 +1,4 @@
-const { STORAGE_KEYS, DEFAULT_SETTINGS } = require('./constants');
+const { STORAGE_KEYS, DEFAULT_SETTINGS, DEFAULT_COLORS } = require('./constants');
 const { cloneImages, clonePeriods } = require('./records');
 
 const CLOUD_COLLECTION = 'ot_profiles';
@@ -51,6 +51,8 @@ function buildSettings(source) {
     leaveDefaultEnd: settings.leaveDefaultEnd || DEFAULT_SETTINGS.leaveDefaultEnd,
     durationFormat: settings.durationFormat === 'minute' ? 'minute' : 'hour',
     periodStartDay: Number.isFinite(Number(settings.periodStartDay)) && Number(settings.periodStartDay) >= 1 && Number(settings.periodStartDay) <= 28 ? Number(settings.periodStartDay) : 1,
+    weekStart: settings.weekStart === 'monday' ? 'monday' : 'sunday',
+    colors: normalizeColors(settings.colors),
     restPeriods: Array.isArray(settings.restPeriods)
       ? clonePeriods(settings.restPeriods)
       : clonePeriods(DEFAULT_SETTINGS.restPeriods)
@@ -60,6 +62,17 @@ function buildSettings(source) {
 function normalizeRate(rate) {
   const num = Number(rate);
   return Number.isFinite(num) && num >= 0 ? num : 25;
+}
+
+function normalizeColors(colors) {
+  const src = colors && typeof colors === 'object' ? colors : {};
+  const valid = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+  return {
+    weekday: valid(src.weekday) ? src.weekday : DEFAULT_COLORS.weekday,
+    weekend: valid(src.weekend) ? src.weekend : DEFAULT_COLORS.weekend,
+    holiday: valid(src.holiday) ? src.holiday : DEFAULT_COLORS.holiday,
+    leave: valid(src.leave) ? src.leave : DEFAULT_COLORS.leave
+  };
 }
 
 function normalizeTimestamp(value) {

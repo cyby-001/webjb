@@ -1,4 +1,4 @@
-const { RecordCategory, OvertimeType, LeaveType } = require('../../utils/constants');
+const { RecordCategory, OvertimeType, LeaveType, DEFAULT_COLORS } = require('../../utils/constants');
 const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate } = require('../../utils/storage');
 const { payrollEstimate, cloneImages } = require('../../utils/records');
 const { formatDate, calcDuration, getPeriodKey, getMonthMeta } = require('../../utils/time');
@@ -28,7 +28,8 @@ const EMPTY_CALC_RESULT = {
 };
 
 const WEEKDAY_NAMES = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-const WEEK_SHORT = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEK_SHORT_SUNDAY = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEK_SHORT_MONDAY = ['一', '二', '三', '四', '五', '六', '日'];
 const LUNAR_DAY_NAMES = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
 
 /* ========== helper functions ========== */
@@ -89,9 +90,13 @@ function cloneForm(form) {
 }
 
 function normalizeSettingsState(settings) {
+  const weekStart = settings.weekStart === 'monday' ? 'monday' : 'sunday';
   return {
     settingDurationFormat: settings.durationFormat || 'hour',
-    settingPeriodStartDay: settings.periodStartDay || 1
+    settingPeriodStartDay: settings.periodStartDay || 1,
+    weekStart,
+    weekShort: weekStart === 'monday' ? WEEK_SHORT_MONDAY : WEEK_SHORT_SUNDAY,
+    theme: settings.colors || DEFAULT_COLORS
   };
 }
 
@@ -102,15 +107,17 @@ function filterByPeriod(records, cursor, startDay) {
   return records.filter((item) => getPeriodKey(item.date, startDay) === cursor);
 }
 
-function buildMonthDays(currentDate, records, selectedDate) {
+function buildMonthDays(currentDate, records, selectedDate, weekStart) {
   const meta = getMonthMeta(currentDate);
   const year = meta.year;
   const month = meta.month;
   const daysInMonth = meta.daysInMonth;
   const firstDay = meta.firstDay;
+  // 周一开始时首日偏移换算（周日在第 7 列），使周六/周日固定在最右两列
+  const offset = weekStart === 'monday' ? (firstDay + 6) % 7 : firstDay;
   const days = [];
 
-  for (let i = 0; i < firstDay; i += 1) {
+  for (let i = 0; i < offset; i += 1) {
     days.push({ empty: true, key: `empty-${i}` });
   }
 
@@ -138,10 +145,11 @@ function buildMonthDays(currentDate, records, selectedDate) {
 }
 
 function buildSelectedDayState(dateStr, records) {
+  const dayRecords = dateStr ? records.filter((item) => item.date === dateStr) : [];
   return {
     selectedDate: dateStr,
     selectedDateText: dateStr ? formatDisplayDate(dateStr) : '',
-    selectedDayRecords: dateStr ? records.filter((item) => item.date === dateStr) : []
+    selectedDayRecords: dayRecords.map((item) => ({ ...item, badgeClass: recordTagClass(item) }))
   };
 }
 
@@ -292,12 +300,14 @@ function buildDetailRecords(records, rangeKey, filter, anchorDate) {
       duration: item.duration,
       note: item.note,
       shortDate: item.date.slice(5).replace('-', '/'),
+      badgeClass: recordTagClass(item),
       badgeText: item.category === RecordCategory.LEAVE
         ? '请假'
-        : (item.type === OvertimeType.WEEKEND || item.type === OvertimeType.HOLIDAY ? '周末' : '平日'),
-      badgeClass: item.category === RecordCategory.LEAVE
-        ? 'leave'
-        : (item.type === OvertimeType.WEEKEND || item.type === OvertimeType.HOLIDAY ? 'weekend' : 'weekday')
+        : item.type === OvertimeType.HOLIDAY
+          ? '节假日'
+          : item.type === OvertimeType.WEEKEND
+            ? '周末'
+            : '平日'
     }));
 }
 
@@ -364,9 +374,11 @@ Page({
     records: [],
     settingDurationFormat: 'hour',
     settingPeriodStartDay: 1,
+    theme: DEFAULT_COLORS,
 
     /* --- calendar view --- */
-    weekShort: WEEK_SHORT,
+    weekShort: WEEK_SHORT_SUNDAY,
+    weekStart: 'sunday',
     currentMonthCursor: monthCursorFromDate(new Date()),
     monthTitle: '',
     monthDays: [],
@@ -611,7 +623,8 @@ ensureDonutCanvas(retries = 5) {
     const loadAndApply = () => {
       const localRecords = loadRecords();
       const localSettings = loadSettings();
-      if (JSON.stringify(localRecords) === JSON.stringify(this.data.records)) return;
+      if (JSON.stringify(localRecords) === JSON.stringify(this.data.records)
+        && JSON.stringify(localSettings) === JSON.stringify(this.data.settings)) return;
       const record = localRecords.find((r) => r.date === selectedDate);
       if (needsMediaResolve(record)) {
         resolveRecordMedia(record).then(() => applyState(localRecords, localSettings));
@@ -623,7 +636,8 @@ ensureDonutCanvas(retries = 5) {
     loadAndApply();
     syncUserData().then(async (state) => {
       if (!state) return;
-      if (JSON.stringify(state.records) === JSON.stringify(this.data.records)) return;
+      if (JSON.stringify(state.records) === JSON.stringify(this.data.records)
+        && JSON.stringify(state.settings) === JSON.stringify(this.data.settings)) return;
       for (const r of state.records) {
         if (needsMediaResolve(r)) {
           await resolveRecordMedia(r);
@@ -639,12 +653,12 @@ ensureDonutCanvas(retries = 5) {
     const monthTitle = `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月`;
     let selectedDate = this.data.selectedDate;
     const selectedInMonth = selectedDate && selectedDate.startsWith(currentMonthCursor);
-    const candidateDays = buildMonthDays(currentDate, this.data.records, selectedInMonth ? selectedDate : '');
+    const candidateDays = buildMonthDays(currentDate, this.data.records, selectedInMonth ? selectedDate : '', this.data.weekStart);
     const targetDay = selectedInMonth
       ? candidateDays.find((item) => item.dateStr === selectedDate)
       : candidateDays.find((item) => !item.empty && item.isToday) || candidateDays.find((item) => !item.empty);
     selectedDate = targetDay ? targetDay.dateStr : '';
-    const monthDays = buildMonthDays(currentDate, this.data.records, selectedDate);
+    const monthDays = buildMonthDays(currentDate, this.data.records, selectedDate, this.data.weekStart);
     const lunarInfo = targetDay ? `农历 ${targetDay.lunarText}` : '';
     const selectedDayState = buildSelectedDayState(selectedDate, this.data.records);
     wx.setStorageSync(SELECTED_MONTH_CURSOR_KEY, currentMonthCursor);
@@ -1291,7 +1305,7 @@ ensureDonutCanvas(retries = 5) {
   const cy = height / 2;
   const outerRadius = Math.min(width, height) * 0.45;
   const innerRadius = outerRadius * 0.72;
-  const gapAngle = 3 * Math.PI / 180; // 扇区间 3° 间隙
+  const gapPx = 3; // 扇区间隙：固定像素宽，内外缘等宽
 
   ctx.clearRect(0, 0, width, height);
 
@@ -1306,24 +1320,21 @@ ensureDonutCanvas(retries = 5) {
     return;
   }
 
+  const theme = this.data.theme || DEFAULT_COLORS;
   const segments = [
-    { key: 'weekday', label: '平日', value: Number(donut.weekday) || 0, color: '#4f7af5' },
-    { key: 'weekend', label: '周末', value: Number(donut.weekend) || 0, color: '#ff7a1a' },
-    { key: 'holiday', label: '节假日', value: Number(donut.holiday) || 0, color: '#ef4444' },
+    { key: 'weekday', label: '平日', value: Number(donut.weekday) || 0, color: theme.weekday },
+    { key: 'weekend', label: '周末', value: Number(donut.weekend) || 0, color: theme.weekend },
+    { key: 'holiday', label: '节假日', value: Number(donut.holiday) || 0, color: theme.holiday },
   ];
-
-  const activeCount = segments.filter(s => s.value > 0).length;
-  const gapCount = activeCount > 1 ? activeCount : 0;
-  const totalAngle = 2 * Math.PI - gapCount * gapAngle;
 
   let startAngle = -Math.PI / 2; // 从 12 点钟方向开始
   const segData = [];
   for (const seg of segments) {
     const ratio = seg.value / total;
-    const drawAngle = seg.value > 0 ? ratio * totalAngle : 0;
+    const drawAngle = seg.value > 0 ? ratio * 2 * Math.PI : 0;
     const endAngle = startAngle + drawAngle;
     segData.push({ ...seg, startAngle, endAngle, drawAngle });
-    if (drawAngle > 0) startAngle = endAngle + gapAngle;
+    startAngle = endAngle;
   }
 
   this.donutSegments = segData;
@@ -1345,6 +1356,27 @@ ensureDonutCanvas(retries = 5) {
     ctx.closePath();
     ctx.fillStyle = seg.color;
     ctx.fill();
+  }
+
+  // 扇区间隙：固定像素宽的径向线，内外缘宽度一致；
+  // 交界处若涉及选中扇区，间隙线延伸到其外扩半径，避免外扩部分边界裸露
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = gapPx;
+  ctx.lineCap = 'butt';
+  for (let i = 0; i < segData.length; i += 1) {
+    const seg = segData[i];
+    if (seg.drawAngle <= 0) continue;
+    let next = (i + 1) % segData.length;
+    while (segData[next].drawAngle <= 0 && next !== i) {
+      next = (next + 1) % segData.length;
+    }
+    if (next === i) break; // 只有一个有值扇区，无需间隙
+    const boundary = seg.endAngle;
+    const rOuter = (donutSelectedIndex === i || donutSelectedIndex === next) ? outerRadius + 5 : outerRadius;
+    ctx.beginPath();
+    ctx.moveTo(cx + innerRadius * Math.cos(boundary), cy + innerRadius * Math.sin(boundary));
+    ctx.lineTo(cx + rOuter * Math.cos(boundary), cy + rOuter * Math.sin(boundary));
+    ctx.stroke();
   }
 },
 

@@ -37,6 +37,11 @@
       <view class="df-item {{settingDurationFormat === 'hour' ? 'active' : ''}}" data-mode="hour" bindtap="onDurationFormatChange">1.5h</view>
       <view class="df-item {{settingDurationFormat === 'minute' ? 'active' : ''}}" data-mode="minute" bindtap="onDurationFormatChange">1h 30m</view>
     </view>
+    <view class="settings-label gap-top">每周起始日</view>
+    <view class="df-row">
+      <view class="df-item {{settingWeekStart === 'sunday' ? 'active' : ''}}" data-value="sunday" bindtap="onWeekStartChange">周日开始</view>
+      <view class="df-item {{settingWeekStart === 'monday' ? 'active' : ''}}" data-value="monday" bindtap="onWeekStartChange">周一开始</view>
+    </view>
   </view>
 
   <view class="info-card">
@@ -63,6 +68,34 @@
             <view class="trash-line"></view>
           </view>
         </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="info-card">
+    <view class="section-title">记录配色</view>
+    <view class="settings-sub">点击类型，从弹窗中选择颜色</view>
+    <view class="color-row" wx:for="{{colorTypes}}" wx:key="type" wx:for-item="row" data-type="{{row.type}}" bindtap="openColorPicker">
+      <view class="color-row-label">{{row.label}}</view>
+      <view class="color-row-current">
+        <view class="color-row-dot" style="background: {{settingColors[row.type]}};"></view>
+        <view class="color-row-arrow">›</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{colorPickerType}}" class="color-mask" bindtap="closeColorPicker">
+    <view class="color-sheet" catchtap="noop">
+      <view class="color-sheet-title">选择{{colorPickerLabel}}颜色</view>
+      <view class="color-sheet-swatches">
+        <view
+          wx:for="{{colorOptions}}"
+          wx:key="*this"
+          class="color-swatch {{settingColors[colorPickerType] === item ? 'active' : ''}}"
+          style="background: {{item}};"
+          data-value="{{item}}"
+          bindtap="selectColor"
+        ></view>
       </view>
     </view>
   </view>

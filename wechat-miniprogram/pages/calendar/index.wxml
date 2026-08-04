@@ -1,6 +1,6 @@
 <wxs module="fmt" src="../../utils/fmt.wxs"></wxs>
 
-<view class="container {{currentTab === 'calendar' ? 'calendar-page' : 'stats-page'}}">
+<view class="container {{currentTab === 'calendar' ? 'calendar-page' : 'stats-page'}}" style="--c-weekday: {{theme.weekday}}; --c-weekend: {{theme.weekend}}; --c-holiday: {{theme.holiday}}; --c-leave: {{theme.leave}};">
   <view class="hero" style="padding-top: {{navTop}}px;">
     <view class="nav" style="height: {{navHeight}}px; padding-right: {{capsuleSpace}}px;">
       <view class="brand">
@@ -74,7 +74,7 @@
     <block wx:if="{{selectedDayRecords.length}}">
       <view class="day-record-item" wx:for="{{selectedDayRecords}}" wx:key="id" data-id="{{item.id}}" bindtap="editSelectedRecord">
         <view class="day-record-top">
-          <view class="type-badge {{item.category === '请假' ? 'leave' : 'weekday'}}">{{item.category === '请假' ? '请假' : '加班'}}</view>
+          <view class="type-badge {{item.badgeClass}}">{{item.category === '请假' ? '请假' : '加班'}}</view>
           <view class="day-record-time">{{item.startTime}}-{{item.endTime}}</view>
           <view class="day-record-dur">{{fmt.fmtDur(item.duration, settingDurationFormat)}}</view>
         </view>

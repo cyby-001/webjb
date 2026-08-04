@@ -293,10 +293,10 @@
   box-shadow: 0 6rpx 12rpx rgba(79, 122, 245, 0.18);
 }
 
-.day-badge.weekday { background: #4f7af5; }
-.day-badge.weekend { background: #ff8b35; }
-.day-badge.holiday { background: #ef4444; }
-.day-badge.leave { background: #b38cff; }
+.day-badge.weekday { background: var(--c-weekday, #4f7af5); }
+.day-badge.weekend { background: var(--c-weekend, #ff8b35); }
+.day-badge.holiday { background: var(--c-holiday, #ef4444); }
+.day-badge.leave { background: var(--c-leave, #b38cff); }
 
 .day-note {
   margin-top: 6rpx;
@@ -1253,10 +1253,10 @@
   display: inline-block;
 }
 
-.dot.blue { background: #4f7af5; }
-.dot.orange { background: #ff7a1a; }
-.dot.purple { background: #b38cff; }
-.dot.red { background: #ef4444; }
+.dot.blue { background: var(--c-weekday, #4f7af5); }
+.dot.orange { background: var(--c-weekend, #ff7a1a); }
+.dot.purple { background: var(--c-leave, #b38cff); }
+.dot.red { background: var(--c-holiday, #ef4444); }
 
 .range-row {
   margin-top: 14rpx;
@@ -1358,8 +1358,8 @@
   border-radius: 10rpx 10rpx 0 0;
 }
 
-.bar.ot { background: #4f7af5; }
-.bar.leave { background: #b38cff; }
+.bar.ot { background: var(--c-weekday, #4f7af5); }
+.bar.leave { background: var(--c-leave, #b38cff); }
 
 .bar-label {
   margin-top: 8rpx;
@@ -1439,9 +1439,10 @@
   box-shadow: 0 6rpx 12rpx rgba(79, 122, 245, 0.16);
 }
 
-.type-badge.weekday { background: #4f7af5; }
-.type-badge.weekend { background: #ff8b35; }
-.type-badge.leave { background: #b38cff; }
+.type-badge.weekday { background: var(--c-weekday, #4f7af5); }
+.type-badge.weekend { background: var(--c-weekend, #ff8b35); }
+.type-badge.holiday { background: var(--c-holiday, #ef4444); }
+.type-badge.leave { background: var(--c-leave, #b38cff); }
 
 .detail-hours {
   color: #334155;
