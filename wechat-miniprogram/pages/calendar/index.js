@@ -1,7 +1,7 @@
 const { RecordCategory, OvertimeType, LeaveType, DEFAULT_COLORS } = require('../../utils/constants');
 const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate } = require('../../utils/storage');
 const { payrollEstimate, cloneImages } = require('../../utils/records');
-const { formatDate, calcDuration, getPeriodKey, getMonthMeta } = require('../../utils/time');
+const { formatDate, calcDuration, getPeriodKey, getMonthMeta, endForDuration } = require('../../utils/time');
 const { writeTempFile, handleGeneratedFile, exportRecordsToCSV, chooseAndReadJSON } = require('../../utils/files');
 const { sanitizeOneDecimalInput, parseOneDecimal } = require('../../utils/decimal');
 const { uploadFile, downloadCloudFile, resolveRecordMedia, deleteCloudFiles } = require('../../utils/cloud-files');
@@ -125,6 +125,10 @@ function buildMonthDays(currentDate, records, selectedDate, weekStart) {
     const date = new Date(year, month, day);
     const dateStr = formatDate(date);
     const dayRecords = records.filter((item) => item.date === dateStr);
+    const otRecords = dayRecords.filter((item) => item.category !== RecordCategory.LEAVE);
+    const leaveRecords = dayRecords.filter((item) => item.category === RecordCategory.LEAVE);
+    const showLeave = !otRecords.length && leaveRecords.length;
+    const shown = showLeave ? leaveRecords : otRecords;
     days.push({
       empty: false,
       key: dateStr,
@@ -135,9 +139,9 @@ function buildMonthDays(currentDate, records, selectedDate, weekStart) {
       isToday: formatDate(new Date()) === dateStr,
       lunarText: getPseudoLunarText(day),
       dayRecords,
-      dayTotal: Number(dayRecords.reduce((sum, r) => sum + Number(r.duration || 0), 0).toFixed(1)),
+      dayTotal: Number(shown.reduce((sum, r) => sum + Number(r.duration || 0), 0).toFixed(1)),
       notePreview: buildNotePreview(dayRecords[0] && dayRecords[0].note),
-      tagClass: recordTagClass(dayRecords[0])
+      tagClass: showLeave ? 'leave' : recordTagClass(otRecords[0])
     });
   }
 
@@ -625,11 +629,12 @@ ensureDonutCanvas(retries = 5) {
       const localSettings = loadSettings();
       if (JSON.stringify(localRecords) === JSON.stringify(this.data.records)
         && JSON.stringify(localSettings) === JSON.stringify(this.data.settings)) return;
-      const record = localRecords.find((r) => r.date === selectedDate);
-      if (needsMediaResolve(record)) {
-        resolveRecordMedia(record).then(() => applyState(localRecords, localSettings));
+      const needResolve = localRecords.filter((r) => r.date === selectedDate && needsMediaResolve(r));
+      const apply = () => applyState(localRecords, localSettings);
+      if (needResolve.length) {
+        Promise.all(needResolve.map((r) => resolveRecordMedia(r))).then(apply);
       } else {
-        applyState(localRecords, localSettings);
+        apply();
       }
     };
 
@@ -694,7 +699,8 @@ ensureDonutCanvas(retries = 5) {
   /* ========== calendar: editor ========== */
 
   async openEditorForDate(dateStr, recordId) {
-    const existing = recordId ? this.data.records.find((item) => item.id === recordId) : null;
+    // WXML dataset 会把 id 转成字符串，统一按字符串比较，兼容数字 id（导入的旧数据）
+    const existing = recordId ? this.data.records.find((item) => String(item.id) === String(recordId)) : null;
     const targetDate = new Date(`${dateStr}T00:00:00`);
     const settings = this.data.settings;
     let form;
@@ -732,9 +738,11 @@ ensureDonutCanvas(retries = 5) {
       };
       editingRecordId = existing.id;
     } else {
-      const type = targetDate.getDay() === 0 || targetDate.getDay() === 6 ? OvertimeType.WEEKEND : OvertimeType.WEEKDAY;
-      const startTime = settings.otDefaultStart;
-      const endTime = settings.otDefaultEnd;
+      const isWeekend = targetDate.getDay() === 0 || targetDate.getDay() === 6;
+      const type = isWeekend ? OvertimeType.WEEKEND : OvertimeType.WEEKDAY;
+      // 周末加班默认按全天班时间（与请假默认一致），平日加班按下班后时间
+      const startTime = isWeekend ? settings.leaveDefaultStart : settings.otDefaultStart;
+      const endTime = isWeekend ? settings.leaveDefaultEnd : settings.otDefaultEnd;
       form = {
         category: RecordCategory.OVERTIME,
         type,
@@ -787,7 +795,9 @@ ensureDonutCanvas(retries = 5) {
 
     if (category === RecordCategory.OVERTIME) {
       if (this.data.leaveTypeOptions.includes(form.type)) form.type = overtimeDefaultType;
-      if (form.startTime === leaveStart && form.endTime === leaveEnd) {
+      // 周末加班默认即全天时间（与请假一致），不切换回下班后时间
+      const isWeekend = isWeekendDate(selectedDate);
+      if (form.startTime === leaveStart && form.endTime === leaveEnd && !isWeekend) {
         form.startTime = otStart;
         form.endTime = otEnd;
         form.duration = calcDuration(otStart, otEnd, settings.restPeriods);
@@ -822,6 +832,11 @@ ensureDonutCanvas(retries = 5) {
   onDurationInput(e) {
     const duration = sanitizeOneDecimalInput(e.detail.value);
     const form = updateFormField(this.data.form, 'duration', duration);
+    const dur = parseOneDecimal(duration, 0);
+    if (form.startTime && dur > 0) {
+      // 手动改时长时联动结束时间，保证时长与起止时间一致
+      form.endTime = endForDuration(form.startTime, dur, this.data.settings.restPeriods);
+    }
     this.setData({ form });
   },
 
@@ -876,10 +891,13 @@ ensureDonutCanvas(retries = 5) {
     wx.hideLoading();
 
     const images = currentImages.concat(cloudIds).slice(0, 3);
+    const prevResolved = this.data.form._resolvedUrls || [];
     const localPaths = [];
-    for (const cloudId of images) {
-      const path = cloudId ? await downloadCloudFile(cloudId) : '';
-      localPaths.push(path);
+    for (let i = 0; i < images.length; i += 1) {
+      const cloudId = images[i];
+      if (!cloudId) { localPaths.push(''); continue; }
+      // 已有图片复用之前的本地路径，只下载新上传的
+      localPaths.push(prevResolved[i] || await downloadCloudFile(cloudId));
     }
     const form = updateFormField(this.data.form, 'images', images);
     this.setData({ form: updateFormField(form, '_resolvedUrls', localPaths) });
@@ -914,8 +932,8 @@ ensureDonutCanvas(retries = 5) {
   saveRecord() {
     if (!this.data.selectedDate) return;
 
-    const recordId = this.data.editingRecordId || Date.now().toString();
-    const existing = this.data.records.find((item) => item.id === recordId);
+    const recordId = String(this.data.editingRecordId || Date.now());
+    const existing = this.data.records.find((item) => String(item.id) === recordId);
     const nextRecord = {
       id: recordId,
       date: this.data.selectedDate,
@@ -942,7 +960,7 @@ ensureDonutCanvas(retries = 5) {
       }
     }
 
-    const records = this.data.records.filter((item) => item.id !== recordId);
+    const records = this.data.records.filter((item) => String(item.id) !== recordId);
     records.push(nextRecord);
     records.sort((a, b) => (a.date < b.date ? 1 : -1));
     saveRecords(records);
@@ -960,8 +978,9 @@ ensureDonutCanvas(retries = 5) {
       content: '这条记录会被永久删除。',
       success: (res) => {
         if (!res.confirm) return;
-        const records = this.data.records.filter((item) => item.id !== this.data.editingRecordId);
-        const deleting = this.data.records.find((item) => item.id === this.data.editingRecordId);
+        const id = String(this.data.editingRecordId);
+        const records = this.data.records.filter((item) => String(item.id) !== id);
+        const deleting = this.data.records.find((item) => String(item.id) === id);
         if (deleting) {
           const cloudIds = [...(deleting.images || []), deleting.voiceId || ''].filter(Boolean);
           if (cloudIds.length) deleteCloudFiles(cloudIds).catch(() => {});

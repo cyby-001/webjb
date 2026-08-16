@@ -120,7 +120,7 @@ Page({
     setCloudSyncEnabled(this.data.settingCloudSync);
     saveSettings(settings);
     wx.showToast({ title: '设置已保存', icon: 'success' });
-    setTimeout(() => wx.navigateBack(), 600);
+    wx.navigateBack();
   },
 
   noop() {}

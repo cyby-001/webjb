@@ -233,7 +233,12 @@ async function pushStateToCloud(state) {
 
 function mergeRuntimeCache(cloudRecords, localRecords) {
   return cloudRecords.map((item) => {
-    const local = localRecords.find((r) => r.id === item.id || r.date === item.date);
+    // 优先按唯一 id 匹配；id 缺失或不同时，仅当本地该日期只有一条才按日期兜底，避免一天多条错配
+    let local = localRecords.find((r) => String(r.id) === String(item.id));
+    if (!local) {
+      const sameDate = localRecords.filter((r) => r.date === item.date);
+      if (sameDate.length === 1) local = sameDate[0];
+    }
     if (local) {
       item._resolvedUrls = local._resolvedUrls || [];
       item._resolvedAt = local._resolvedAt;

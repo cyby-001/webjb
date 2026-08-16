@@ -12,32 +12,50 @@ function formatDate(date) {
   return `${y}-${m}-${d}`;
 }
 
-function calcDuration(start, end, restPeriods) {
+function minutesToTime(min) {
+  const m = ((min % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+// start-end 区间内与休息时段的重叠时长（小时）
+function restHoursBetween(start, end, restPeriods) {
   let startMin = toMinutes(start);
   let endMin = toMinutes(end);
-
-  if (endMin <= startMin) {
-    endMin += 24 * 60;
-  }
-
+  if (endMin <= startMin) endMin += 24 * 60;
   let restHours = 0;
   (restPeriods || []).forEach((item) => {
     let restStart = toMinutes(item.start);
     let restEnd = toMinutes(item.end);
-
-    if (restEnd <= restStart) {
-      restEnd += 24 * 60;
-    }
-
+    if (restEnd <= restStart) restEnd += 24 * 60;
     const overlapStart = Math.max(startMin, restStart);
     const overlapEnd = Math.min(endMin, restEnd);
     if (overlapEnd > overlapStart) {
       restHours += (overlapEnd - overlapStart) / 60;
     }
   });
+  return restHours;
+}
 
-  const totalHours = (endMin - startMin) / 60 - restHours;
+function calcDuration(start, end, restPeriods) {
+  let startMin = toMinutes(start);
+  let endMin = toMinutes(end);
+  if (endMin <= startMin) endMin += 24 * 60;
+  const totalHours = (endMin - startMin) / 60 - restHoursBetween(start, end, restPeriods);
   return Math.max(0, Number(totalHours.toFixed(2)));
+}
+
+// 由开始时间和时长反推结束时间，使 calcDuration 与该时长一致（迭代补偿休息时段）
+function endForDuration(start, durationHours, restPeriods) {
+  const targetMin = Math.round(Number(durationHours) * 60);
+  if (!Number.isFinite(targetMin)) return start;
+  let endMin = toMinutes(start) + targetMin;
+  for (let i = 0; i < 5; i += 1) {
+    const rest = Math.round(restHoursBetween(start, minutesToTime(endMin), restPeriods) * 60);
+    const next = toMinutes(start) + targetMin + rest;
+    if (Math.abs(next - endMin) < 1) break;
+    endMin = next;
+  }
+  return minutesToTime(endMin);
 }
 
 function getMonthMeta(baseDate) {
@@ -64,5 +82,6 @@ module.exports = {
   formatDate,
   calcDuration,
   getPeriodKey,
-  getMonthMeta
+  getMonthMeta,
+  endForDuration
 };
