@@ -1,8 +1,4 @@
 <view class="info-page settings-page">
-  <view class="hero-card">
-    <view class="hero-title">工时设置</view>
-    <view class="hero-sub">设置默认加班 / 请假时间、考勤周期、休息时段和云同步。</view>
-  </view>
 
   <view class="info-card">
     <view class="section-title">默认时间</view>
@@ -42,6 +38,11 @@
       <view class="df-item {{settingWeekStart === 'sunday' ? 'active' : ''}}" data-value="sunday" bindtap="onWeekStartChange">周日开始</view>
       <view class="df-item {{settingWeekStart === 'monday' ? 'active' : ''}}" data-value="monday" bindtap="onWeekStartChange">周一开始</view>
     </view>
+    <view class="settings-row-top gap-top">
+      <view class="settings-label">结算统计全时段</view>
+      <switch checked="{{settingCalcAllTime}}" color="#4f7af5" bindchange="onCalcAllTimeChange" />
+    </view>
+    <view class="settings-sub">开启后加班费 / 调休按全部记录统计，不随月份切换变化</view>
   </view>
 
   <view class="info-card">
@@ -106,6 +107,14 @@
       <switch checked="{{settingCloudSync}}" color="#4f7af5" bindchange="onCloudSyncChange" />
     </view>
     <view class="settings-sub">关闭后记录仅保存在本机，不再上传到云端</view>
+  </view>
+
+  <view class="info-card">
+    <view class="settings-row-top">
+      <view class="settings-label no-margin">记录随语</view>
+      <switch checked="{{settingCheer}}" color="#4f7af5" bindchange="onCheerChange" />
+    </view>
+    <view class="settings-sub">保存加班记录后随机弹出</view>
   </view>
 
   <button class="btn-primary settings-save" bindtap="saveSettings">保存设置</button>

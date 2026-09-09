@@ -30,5 +30,6 @@
     "include": []
   },
   "appid": "wxe6c24b0a070a8e11",
-  "editorSetting": {}
+  "editorSetting": {},
+  "testRoot": "minitest/"
 }

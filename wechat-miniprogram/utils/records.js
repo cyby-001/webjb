@@ -15,47 +15,128 @@ function clonePeriods(periods) {
   }));
 }
 
-function payrollEstimate(records, startDate, endDate, hourlyRate) {
-  const selected = records.filter((r) => r.date >= startDate && r.date <= endDate);
-  let weekday = 0;
-  let weekend = 0;
-  let holiday = 0;
-  let leave = 0;
-
-  selected.forEach((r) => {
-    const h = Number(r.duration || 0);
-    if (r.category === RecordCategory.LEAVE) {
-      leave += h;
-      return;
+// rule: { weekday, weekend, holiday, deductLeave, mode, startHours, frontBrackets, intervalHours, baseAmount, stepIncrement, maxHours }
+// mode='tier'（阶梯固定加班费）：结算周期内累计应付加班时长落入档位 → 当月固定金额。
+// 前置档（最多 3 个）：间隔与金额逐个自定义；之后的统一档从 startHours+Σ前置间隔 起，
+// 每档 = 上一档金额 + stepIncrement，直到 maxHours 封顶；无前置档时首档金额 = baseAmount
+function payrollEstimate(records, startDate, endDate, hourlyRate, rule) {
+  const r = rule && typeof rule === 'object' ? rule : {};
+  const num = (v, dft) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : dft;
+  };
+  const mulWeekday = num(r.weekday, 1.5);
+  const mulWeekend = num(r.weekend, 2);
+  const mulHoliday = num(r.holiday, 3);
+  const deductLeaveEnabled = r.deductLeave !== false;
+  const fronts = Array.isArray(r.frontBrackets)
+    ? r.frontBrackets
+      .map((f) => ({ hours: Number(f && f.hours), amount: Number(f && f.amount) }))
+      .filter((f) => f.hours > 0 && f.amount >= 0)
+    : [];
+  const tierCfg = r.mode === 'tier'
+    ? {
+      start: num(r.startHours, 40),
+      interval: num(r.intervalHours, 5),
+      base: Number(r.baseAmount) > 0 ? Number(r.baseAmount) : 600,
+      step: Number.isFinite(Number(r.stepIncrement)) && Number(r.stepIncrement) >= 0 ? Number(r.stepIncrement) : 100,
+      max: num(r.maxHours, 60)
     }
-    if (r.type === OvertimeType.WEEKEND) weekend += h;
-    else if (r.type === OvertimeType.HOLIDAY) holiday += h;
-    else weekday += h;
-  });
+    : null;
 
-  let remainingLeave = leave;
+  const selected = records.filter((r2) => r2.date >= startDate && r2.date <= endDate);
+  const otRecords = selected
+    .filter((rec) => rec.category === RecordCategory.OVERTIME)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const leave = selected
+    .filter((rec) => rec.category === RecordCategory.LEAVE)
+    .reduce((sum, rec) => sum + Number(rec.duration || 0), 0);
 
-  const deduct = (hours) => {
-    if (remainingLeave <= 0) return hours;
-    const deduction = Math.min(hours, remainingLeave);
-    remainingLeave -= deduction;
-    return hours - deduction;
+  const typeMul = (rec) => {
+    if (rec.type === OvertimeType.WEEKEND) return mulWeekend;
+    if (rec.type === OvertimeType.HOLIDAY) return mulHoliday;
+    return mulWeekday;
   };
 
-  const payableWeekday = deduct(weekday);
-  const payableWeekend = deduct(weekend);
-  const payableHoliday = deduct(holiday);
-  const settlementHours = payableWeekday + payableWeekend + payableHoliday;
-  const weighted = payableWeekday * 1.5 + payableWeekend * 2 + payableHoliday * 3;
+  let remainingLeave = deductLeaveEnabled ? leave : 0;
+  let weighted = 0;
+  let settlementHours = 0;
+
+  otRecords.forEach((rec) => {
+    let hours = Number(rec.duration || 0);
+    if (remainingLeave > 0) {
+      const deduction = Math.min(hours, remainingLeave);
+      remainingLeave -= deduction;
+      hours -= deduction;
+    }
+    if (hours <= 0) return;
+    settlementHours += hours;
+    if (!tierCfg) weighted += hours * typeMul(rec);
+  });
+
+  let amount;
+  let tierText = null;
+  if (tierCfg) {
+    // 阶梯固定金额：按时长落档，金额与小时薪无关
+    let bracket = 0;
+    if (settlementHours >= tierCfg.start && (fronts.length || tierCfg.base > 0)) {
+      // 先走前置档：间隔与金额逐个自定义
+      // 临界点归上一档（≤ 上限）：42h 归 40–42h 档、45h 归 42–45h 档
+      let pos = tierCfg.start;
+      let rem = settlementHours - tierCfg.start;
+      let lastAmount = null;
+      let hit = false;
+      for (const f of fronts) {
+        if (rem <= f.hours) {
+          bracket = f.amount;
+          tierText = `${pos}–${pos + f.hours}h`;
+          hit = true;
+          break;
+        }
+        rem -= f.hours;
+        pos += f.hours;
+        lastAmount = f.amount;
+      }
+      // 统一档：每档 = 上一档金额 + 递增金额（无前置档时首档 = baseAmount）
+      // 临界点同样归上一档：档位 (下限, 上限]，n = ceil(rem / interval) - 1
+      if (!hit && tierCfg.interval > 0) {
+        const baseVal = fronts.length ? lastAmount + tierCfg.step : tierCfg.base;
+        const n = Math.max(0, Math.ceil(rem / tierCfg.interval) - 1);
+        const maxN = tierCfg.max > pos ? Math.max(0, Math.ceil((tierCfg.max - pos) / tierCfg.interval) - 1) : Infinity;
+        if (settlementHours > tierCfg.max) {
+          // 严格超出最大时长：在封顶档之上再加一次递增
+          bracket = baseVal + (maxN + 1) * tierCfg.step;
+          tierText = `${tierCfg.max}h 以上`;
+        } else {
+          const capped = tierCfg.max > pos;
+          const idx = Math.min(n, maxN);
+          const lastFrom = capped ? Math.max(pos, tierCfg.max - tierCfg.interval) : Infinity;
+          const from = Math.min(pos + idx * tierCfg.interval, lastFrom);
+          const to = capped ? Math.min(from + tierCfg.interval, tierCfg.max) : from + tierCfg.interval;
+          bracket = baseVal + idx * tierCfg.step;
+          tierText = `${from}–${to}h`;
+        }
+      }
+    }
+    weighted = 0;
+    amount = Number(bracket.toFixed(2));
+  } else {
+    amount = Number((weighted * Number(hourlyRate || 0)).toFixed(2));
+  }
+
+  const totalWeekday = otRecords.filter((rec) => rec.type === OvertimeType.WEEKDAY).reduce((s, rec) => s + Number(rec.duration || 0), 0);
+  const totalWeekend = otRecords.filter((rec) => rec.type === OvertimeType.WEEKEND).reduce((s, rec) => s + Number(rec.duration || 0), 0);
+  const totalHoliday = otRecords.filter((rec) => rec.type === OvertimeType.HOLIDAY).reduce((s, rec) => s + Number(rec.duration || 0), 0);
 
   return {
-    weekday: Number(weekday.toFixed(2)),
-    weekend: Number(weekend.toFixed(2)),
-    holiday: Number(holiday.toFixed(2)),
+    weekday: Number(totalWeekday.toFixed(2)),
+    weekend: Number(totalWeekend.toFixed(2)),
+    holiday: Number(totalHoliday.toFixed(2)),
     leave: Number(leave.toFixed(2)),
     weighted: Number(weighted.toFixed(2)),
     settlementHours: Number(settlementHours.toFixed(2)),
-    amount: Number((weighted * Number(hourlyRate || 0)).toFixed(2))
+    amount,
+    tierText
   };
 }
 

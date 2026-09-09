@@ -1,11 +1,14 @@
-const { RecordCategory, OvertimeType, LeaveType, DEFAULT_COLORS } = require('../../utils/constants');
-const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate } = require('../../utils/storage');
+const { RecordCategory, OvertimeType, LeaveType, DEFAULT_COLORS, PAY_RULES } = require('../../utils/constants');
+const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate, loadUnlockedAchievements, saveUnlockedAchievements } = require('../../utils/storage');
+const { ACHIEVEMENTS, evaluateAchievements } = require('../../utils/achievements');
 const { payrollEstimate, cloneImages } = require('../../utils/records');
 const { formatDate, calcDuration, getPeriodKey, getMonthMeta, endForDuration } = require('../../utils/time');
 const { writeTempFile, handleGeneratedFile, exportRecordsToCSV, chooseAndReadJSON } = require('../../utils/files');
 const { sanitizeOneDecimalInput, parseOneDecimal } = require('../../utils/decimal');
 const { uploadFile, downloadCloudFile, resolveRecordMedia, deleteCloudFiles } = require('../../utils/cloud-files');
 const { applyTimeWatermark } = require('../../utils/watermark');
+const { pickCheer } = require('../../utils/cheers');
+const { drawPoster, showPosterMenu } = require('../../utils/poster');
 
 const SELECTED_MONTH_CURSOR_KEY = 'ot_selected_month_cursor';
 const CALC_PREFS_KEY = 'ot_stats_calc_prefs';
@@ -96,7 +99,9 @@ function normalizeSettingsState(settings) {
     settingPeriodStartDay: settings.periodStartDay || 1,
     weekStart,
     weekShort: weekStart === 'monday' ? WEEK_SHORT_MONDAY : WEEK_SHORT_SUNDAY,
-    theme: settings.colors || DEFAULT_COLORS
+    theme: settings.colors || DEFAULT_COLORS,
+    payRule: settings.payRule,
+    payRuleName: payRuleDisplayName(settings.payRule)
   };
 }
 
@@ -315,9 +320,17 @@ function buildDetailRecords(records, rangeKey, filter, anchorDate) {
     }));
 }
 
-function buildCalcResult(records, startDate, endDate, hourlyRate) {
+function buildCalcResult(records, startDate, endDate, hourlyRate, payRule) {
   if (!startDate || !endDate || startDate > endDate) return { ...EMPTY_CALC_RESULT };
-  return payrollEstimate(records, startDate, endDate, hourlyRate);
+  return payrollEstimate(records, startDate, endDate, hourlyRate, payRule);
+}
+
+function payRuleDisplayName(payRule) {
+  if (!payRule) return '法定标准';
+  if (payRule.mode === 'custom') return '自定义';
+  if (payRule.mode === 'tier') return '阶梯规则';
+  const preset = PAY_RULES.find((r) => r.id === payRule.mode);
+  return preset ? preset.name : '法定标准';
 }
 
 function loadCalcPrefs() {
@@ -412,6 +425,11 @@ Page({
     isRecording: false,
     isFormVoicePlaying: false,
     cardVoicePlayingId: '',
+    cheer: { show: false, emoji: '', text: '', title: '', caption: '' },
+    unlockedAchievements: [],
+    showAchievementDetailCard: false,
+    achievementDetail: null,
+    posterPreview: '',
 
     /* --- stats view --- */
     monthLabel: '',
@@ -431,6 +449,9 @@ Page({
     trendMaxText: '',
     detailRecords: [],
     hourlyRate: 25,
+    payRules: PAY_RULES,
+    showPayRuleSheet: false,
+    payRuleDraft: null,
     calcStart: '',
     calcEnd: '',
     calcResult: { ...EMPTY_CALC_RESULT },
@@ -442,6 +463,10 @@ Page({
   /* ========== lifecycle ========== */
 
   onLoad(options) {
+    // 开启右上角菜单的「分享给朋友 / 分享到朋友圈」
+    if (wx.showShareMenu) {
+      wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] });
+    }
     this.pendingQuickAdd = options && options.action === 'add';
     if (options && /^\d{4}-\d{2}$/.test(options.month || '')) {
       this.pendingMonthCursor = options.month;
@@ -490,7 +515,8 @@ Page({
       this.saveVoiceToCloud(tempFilePath, seconds);
     });
 
-    this.recorderManager.onError(() => {
+    this.recorderManager.onError((err) => {
+      console.warn('[record error]', err);
       this.setData({ isRecording: false });
       wx.showToast({ title: '录音失败', icon: 'none' });
     });
@@ -613,6 +639,10 @@ ensureDonutCanvas(retries = 5) {
     const applyState = (records, settings) => {
       this.setData({ ...normalizeSettingsState(settings), records, settings }, () => {
         this.refreshCalendar(currentDate);
+        // 存量/同步加载均静默评估成就，不弹卡
+        this.refreshAchievements(records, true);
+        // 从设置页返回时若停在统计页，需要重算结算卡（全时段开关等）
+        if (this.data.currentTab === 'stats') this.reloadStats();
         const quickAddFromStorage = !!wx.getStorageSync('ot_quick_add');
         if (quickAddFromStorage) wx.removeStorageSync('ot_quick_add');
         if (quickAddFromStorage || this.pendingQuickAdd) {
@@ -967,8 +997,157 @@ ensureDonutCanvas(retries = 5) {
 
     this.setData({ records, showEditor: false, editingRecordId: '' }, () => {
       this.refreshCalendar(dateFromMonthCursor(this.data.currentMonthCursor));
-      wx.showToast({ title: '已保存', icon: 'success' });
+      const newAchievements = this.refreshAchievements(records, false);
+      if (newAchievements.length) {
+        this.showAchievementCard(newAchievements[0]);
+      } else if (nextRecord.category === RecordCategory.OVERTIME) {
+        this.showCheer(nextRecord);
+      } else {
+        wx.showToast({ title: '已保存', icon: 'success' });
+      }
     });
+  },
+
+  /* ========== calendar: cheer & achievements ========== */
+
+  refreshAchievements(records, silent) {
+    const settings = this.data.settings || {};
+    const leaveFullDay = calcDuration(settings.leaveDefaultStart || '08:00', settings.leaveDefaultEnd || '17:00', settings.restPeriods);
+    const unlocked = evaluateAchievements(records, {
+      leaveFullDayHours: leaveFullDay
+    });
+    const stored = loadUnlockedAchievements();
+    const newItems = [];
+    let changed = false;
+    unlocked.forEach(({ id, date }) => {
+      const old = stored[id];
+      if (typeof old === 'number') {
+        // 旧格式（评估当天的时间戳）→ 自愈为达成日
+        stored[id] = date;
+        changed = true;
+      } else if (!old) {
+        stored[id] = date;
+        changed = true;
+        const item = ACHIEVEMENTS.find((a) => a.id === id);
+        if (item) newItems.push(item);
+      }
+    });
+    if (changed) saveUnlockedAchievements(stored);
+    this.applyAchievementList(stored);
+    return silent ? [] : newItems;
+  },
+
+  applyAchievementList(stored) {
+    const unlockedAchievements = ACHIEVEMENTS
+      .filter((a) => stored[a.id])
+      .map((a) => ({
+        id: a.id,
+        emoji: a.emoji,
+        name: a.name,
+        category: a.category,
+        desc: a.desc,
+        quote: a.quote,
+        time: stored[a.id]
+      }));
+    this.setData({ unlockedAchievements });
+  },
+
+  showAchievementCard(item) {
+    if (!item) return;
+    if (this.cheerTimer) clearTimeout(this.cheerTimer);
+    this.setData({ cheer: { show: true, kind: 'achievement', emoji: item.emoji, title: item.name, text: item.quote, caption: '成就解锁' } });
+    this.cheerTimer = setTimeout(() => {
+      this.setData({ 'cheer.show': false });
+    }, 2600);
+  },
+
+  showAchievementDetail(e) {
+    const item = this.data.unlockedAchievements.find((a) => String(a.id) === String(e.currentTarget.dataset.id));
+    if (!item) return;
+    this.setData({ showAchievementDetailCard: true, achievementDetail: item });
+    this.preparePosterPreview(item);
+  },
+
+  // 详情卡打开即生成海报预览（同一条成就只画一次）
+  // 预览 setData 统一延迟到弹出动画（250ms）结束后，避免图片解码和动画抢帧
+  preparePosterPreview(item) {
+    if (this._posterCache && this._posterCache.id === item.id) {
+      if (this._posterTimer) clearTimeout(this._posterTimer);
+      this._posterTimer = setTimeout(() => {
+        if (this.data.showAchievementDetailCard && this.data.achievementDetail
+          && String(this.data.achievementDetail.id) === String(item.id)) {
+          this.setData({ posterPreview: this._posterCache.path });
+        }
+      }, 300);
+      return;
+    }
+    this.setData({ posterPreview: '' });
+    if (this._posterTimer) clearTimeout(this._posterTimer);
+    this._posterTimer = setTimeout(() => {
+      drawPoster(item)
+        .then((path) => {
+          this._posterCache = { id: item.id, path };
+          if (this.data.showAchievementDetailCard && this.data.achievementDetail
+            && String(this.data.achievementDetail.id) === String(item.id)) {
+            this.setData({ posterPreview: path });
+          }
+        })
+        .catch(() => {});
+    }, 300);
+  },
+
+  closeAchievementDetail() {
+    this.setData({ showAchievementDetailCard: false, achievementDetail: null });
+  },
+
+  saveAchievementPosterImage() {
+    const item = this.data.achievementDetail;
+    if (!item || this.savingPoster) return;
+    this.savingPoster = true;
+    const cached = this.data.posterPreview
+      && this.data.achievementDetail
+      && String(this.data.achievementDetail.id) === String(item.id);
+    const ready = cached ? Promise.resolve(this.data.posterPreview) : drawPoster(item);
+    ready
+      .then(showPosterMenu)
+      .then(() => {
+        if (wx.showShareImageMenu) return; // 分享面板自带操作反馈，无需 toast
+        wx.showToast({ title: '海报已保存到相册', icon: 'success' });
+      })
+      .catch((err) => {
+        const msg = (err && err.errMsg) || '';
+        console.warn('[poster error]', err);
+        if (/cancel/i.test(msg)) return; // 用户主动关闭分享面板，不算失败
+        if (/auth/i.test(msg)) {
+          wx.showModal({
+            title: '需要相册权限',
+            content: '保存海报需要「添加到相册」权限，请在设置中开启',
+            confirmText: '去设置',
+            success: (res) => { if (res.confirm) wx.openSetting(); }
+          });
+        } else {
+          wx.showToast({ title: '生成失败', icon: 'none' });
+        }
+      })
+      .then(() => { this.savingPoster = false; });
+  },
+
+  showCheer(record) {
+    // 关闭开关时退回普通 toast，保留保存成功的反馈
+    if (this.data.settings.cheerEnabled === false) {
+      wx.showToast({ title: '已保存', icon: 'success' });
+      return;
+    }
+    if (this.cheerTimer) clearTimeout(this.cheerTimer);
+    const cheer = pickCheer(record, {
+      isWeekend: record.type === OvertimeType.WEEKEND,
+      isHoliday: record.type === OvertimeType.HOLIDAY,
+      lastText: this.data.cheer.text
+    });
+    this.setData({ cheer: { show: true, kind: 'cheer', emoji: cheer.emoji, title: '', text: cheer.text, caption: '记录已保存' } });
+    this.cheerTimer = setTimeout(() => {
+      this.setData({ 'cheer.show': false });
+    }, 2200);
   },
 
   deleteRecord() {
@@ -1024,14 +1203,39 @@ ensureDonutCanvas(retries = 5) {
     this.innerAudioContext.stop();
     this.setData({ isFormVoicePlaying: false, cardVoicePlayingId: '' });
 
-    this.recorderManager.start({
-      duration: 60000,
-      sampleRate: 16000,
-      numberOfChannels: 1,
-      encodeBitRate: 48000,
-      format: 'aac'
+    const doStart = () => {
+      this.recorderManager.start({
+        duration: 60000,
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        encodeBitRate: 48000,
+        format: 'aac'
+      });
+      this.setData({ isRecording: true });
+    };
+    const authGuide = () => {
+      wx.showModal({
+        title: '需要麦克风权限',
+        content: '录音需要使用麦克风，请在设置中开启权限',
+        confirmText: '去设置',
+        success: (res) => { if (res.confirm) wx.openSetting(); }
+      });
+    };
+
+    // 录音需要 scope.record 授权，被拒过时直接引导去设置
+    wx.getSetting({
+      success: (res) => {
+        const granted = res.authSetting['scope.record'];
+        if (granted === false) {
+          authGuide();
+        } else if (granted) {
+          doStart();
+        } else {
+          wx.authorize({ scope: 'scope.record', success: doStart, fail: authGuide });
+        }
+      },
+      fail: doStart
     });
-    this.setData({ isRecording: true });
   },
 
   async saveVoiceToCloud(tempFilePath, duration) {
@@ -1156,9 +1360,18 @@ ensureDonutCanvas(retries = 5) {
     const detailRecords = buildDetailRecords(records, this.data.activeRange, this.data.detailFilter, targetDate);
     const chartHint = trendBars.length
       ? `${trendBars[trendBars.length - 1].shortLabel}月：加班 ${trendBars[trendBars.length - 1].otHours}h / 请假 ${trendBars[trendBars.length - 1].leaveHours}h` : '';
-    const calcStart = calcRange.calcStart;
-    const calcEnd = calcRange.calcEnd;
-    const calcResult = buildCalcResult(records, calcStart, calcEnd, hourlyRate);
+    // 全时段开关：按全部记录的最早~最晚日期统计，不随月份切换变化
+    let calcStart = calcRange.calcStart;
+    let calcEnd = calcRange.calcEnd;
+    if (settings.calcAllTime && records.length) {
+      calcStart = records[0].date;
+      calcEnd = records[0].date;
+      records.forEach((r) => {
+        if (r.date < calcStart) calcStart = r.date;
+        if (r.date > calcEnd) calcEnd = r.date;
+      });
+    }
+    const calcResult = buildCalcResult(records, calcStart, calcEnd, hourlyRate, settings.payRule);
     const totalHours = calcResult.settlementHours || 0;
     const settlementDays = Math.floor(totalHours / 8);
     const settlementRemainHours = Number((totalHours % 8).toFixed(1));
@@ -1248,7 +1461,7 @@ ensureDonutCanvas(retries = 5) {
     const hourlyRate = sanitizeOneDecimalInput(e.detail.value);
     const rateValue = parseOneDecimal(hourlyRate, 0);
     saveHourlyRate(rateValue);
-    const calcResult = buildCalcResult(this.data.records, this.data.calcStart, this.data.calcEnd, rateValue);
+    const calcResult = buildCalcResult(this.data.records, this.data.calcStart, this.data.calcEnd, rateValue, this.data.payRule);
     const totalHours = calcResult.settlementHours || 0;
     this.setData({
       hourlyRate,
@@ -1264,7 +1477,7 @@ ensureDonutCanvas(retries = 5) {
     const nextStart = field === 'calcStart' ? value : this.data.calcStart;
     const nextEnd = field === 'calcEnd' ? value : this.data.calcEnd;
     saveCalcPrefs(nextStart, nextEnd);
-    const calcResult = buildCalcResult(this.data.records, nextStart, nextEnd, this.data.hourlyRate);
+    const calcResult = buildCalcResult(this.data.records, nextStart, nextEnd, this.data.hourlyRate, this.data.payRule);
     const totalHours = calcResult.settlementHours || 0;
     this.setData({
       [field]: value,
@@ -1278,6 +1491,119 @@ ensureDonutCanvas(retries = 5) {
     const mode = e.currentTarget.dataset.mode;
     if (!mode || mode === this.data.calcMode) return;
     this.setData({ calcMode: mode });
+  },
+
+  /* ========== pay rule switcher ========== */
+
+  openPayRuleSheet() {
+    this.setData({ showPayRuleSheet: true, payRuleDraft: null });
+  },
+
+  closePayRuleSheet() {
+    this.setData({ showPayRuleSheet: false, payRuleDraft: null });
+  },
+
+  selectPayRule(e) {
+    const id = e.currentTarget.dataset.id;
+    if (id === 'custom') {
+      // 进入自定义编辑：以当前生效数值为底
+      this.setData({ payRuleDraft: { ...this.data.payRule, mode: 'custom' } });
+      return;
+    }
+    if (id === 'tier') {
+      this.setData({ payRuleDraft: { ...this.data.payRule, mode: 'tier' } });
+      return;
+    }
+    const preset = PAY_RULES.find((r) => r.id === id);
+    if (!preset) return;
+    this.applyPayRule({
+      mode: preset.id,
+      weekday: preset.weekday,
+      weekend: preset.weekend,
+      holiday: preset.holiday,
+      deductLeave: preset.deductLeave
+    });
+  },
+
+  onPayRuleField(e) {
+    const field = e.currentTarget.dataset.field;
+    if (!['weekday', 'weekend', 'holiday', 'startHours', 'intervalHours', 'baseAmount', 'stepIncrement', 'maxHours'].includes(field) || !this.data.payRuleDraft) return;
+    this.setData({ payRuleDraft: { ...this.data.payRuleDraft, [field]: sanitizeOneDecimalInput(e.detail.value) } });
+  },
+
+  onPayRuleDeduct(e) {
+    if (!this.data.payRuleDraft) return;
+    this.setData({ payRuleDraft: { ...this.data.payRuleDraft, deductLeave: e.detail.value } });
+  },
+
+  onFrontField(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const field = e.currentTarget.dataset.field;
+    const draft = this.data.payRuleDraft;
+    if (!draft || !draft.frontBrackets || !draft.frontBrackets[index]) return;
+    this.setData({ payRuleDraft: { ...draft, frontBrackets: draft.frontBrackets.map((f, i) => (i === index ? { ...f, [field]: e.detail.value } : f)) } });
+  },
+
+  addFrontBracket() {
+    const draft = this.data.payRuleDraft;
+    if (!draft || (draft.frontBrackets || []).length >= 3) return;
+    this.setData({ payRuleDraft: { ...draft, frontBrackets: [...(draft.frontBrackets || []), { hours: '', amount: '' }] } });
+  },
+
+  removeFrontBracket(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const draft = this.data.payRuleDraft;
+    if (!draft || !draft.frontBrackets) return;
+    this.setData({ payRuleDraft: { ...draft, frontBrackets: draft.frontBrackets.filter((_, i) => i !== index) } });
+  },
+
+  confirmPayRule() {
+    const draft = this.data.payRuleDraft;
+    if (!draft) return;
+    const num = (v, dft) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : dft;
+    };
+    if (draft.mode === 'tier') {
+      this.applyPayRule({
+        mode: 'tier',
+        startHours: num(draft.startHours, 40),
+        frontBrackets: (draft.frontBrackets || [])
+          .map((f) => ({ hours: num(f.hours, 0), amount: num(f.amount, 0) }))
+          .filter((f) => f.hours > 0)
+          .slice(0, 3),
+        intervalHours: num(draft.intervalHours, 5) || 5,
+        baseAmount: num(draft.baseAmount, 600),
+        stepIncrement: num(draft.stepIncrement, 100),
+        maxHours: num(draft.maxHours, 60),
+        deductLeave: draft.deductLeave !== false
+      });
+      return;
+    }
+    this.applyPayRule({
+      mode: 'custom',
+      weekday: num(draft.weekday, 1.5),
+      weekend: num(draft.weekend, 2),
+      holiday: num(draft.holiday, 3),
+      deductLeave: draft.deductLeave !== false
+    });
+  },
+
+  applyPayRule(rule) {
+    const settings = { ...this.data.settings, payRule: rule };
+    saveSettings(settings);
+    const calcResult = buildCalcResult(this.data.records, this.data.calcStart, this.data.calcEnd, this.data.hourlyRate, rule);
+    const totalHours = calcResult.settlementHours || 0;
+    this.setData({
+      settings,
+      payRule: rule,
+      payRuleName: payRuleDisplayName(rule),
+      showPayRuleSheet: false,
+      payRuleDraft: null,
+      calcResult,
+      settlementDays: Math.floor(totalHours / 8),
+      settlementRemainHours: Number((totalHours % 8).toFixed(1))
+    });
   },
 
   /* ========== trend chart interaction ========== */
@@ -1606,6 +1932,13 @@ ensureDonutCanvas(retries = 5) {
   /* ========== share ========== */
 
   onShareAppMessage() {
+    const ach = this.data.showAchievementDetailCard ? this.data.achievementDetail : null;
+    if (ach) {
+      return {
+        title: `${ach.emoji} 我在加班记录助手解锁了成就「${ach.name}」`,
+        path: '/pages/calendar/index'
+      };
+    }
     const month = this.data.currentMonthCursor || monthCursorFromDate(new Date());
     return {
       title: `加班记录助手 · ${month}`,
@@ -1614,6 +1947,10 @@ ensureDonutCanvas(retries = 5) {
   },
 
   onShareTimeline() {
+    const ach = this.data.showAchievementDetailCard ? this.data.achievementDetail : null;
+    if (ach) {
+      return { title: `${ach.emoji} 我在加班记录助手解锁了成就「${ach.name}」` };
+    }
     const month = this.data.currentMonthCursor || monthCursorFromDate(new Date());
     return {
       title: `加班记录助手 · ${month}`,

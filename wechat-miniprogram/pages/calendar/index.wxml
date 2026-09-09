@@ -225,9 +225,12 @@
   <view class="card calc-shell">
     <view class="calc-head">
       <view class="panel-title">{{calcMode === 'money' ? '加班费估算' : '调休时长'}}</view>
-      <view class="calc-mode-switch">
-        <view class="calc-mode-item {{calcMode === 'money' ? 'active' : ''}}" data-mode="money" bindtap="switchCalcMode">报酬</view>
-        <view class="calc-mode-item {{calcMode === 'leave' ? 'active' : ''}}" data-mode="leave" bindtap="switchCalcMode">调休</view>
+      <view class="calc-head-right">
+        <view class="calc-rule-btn" bindtap="openPayRuleSheet">{{payRuleName}} ▾</view>
+        <view class="calc-mode-switch">
+          <view class="calc-mode-item {{calcMode === 'money' ? 'active' : ''}}" data-mode="money" bindtap="switchCalcMode">报酬</view>
+          <view class="calc-mode-item {{calcMode === 'leave' ? 'active' : ''}}" data-mode="leave" bindtap="switchCalcMode">调休</view>
+        </view>
       </view>
     </view>
     <view class="calc-body">
@@ -244,7 +247,7 @@
           <view class="f-input">{{calcEnd}}</view>
         </picker>
       </view>
-      <view wx:if="{{calcMode === 'money'}}" class="form-row">
+      <view wx:if="{{calcMode === 'money' && payRule.mode !== 'tier'}}" class="form-row">
         <view class="f-label">时薪</view>
         <input class="f-input" type="digit" value="{{hourlyRate}}" bindinput="onRateInput" />
       </view>
@@ -252,23 +255,23 @@
         <view class="result-main">
           <view wx:if="{{calcMode === 'money'}}" class="result-big">￥{{calcResult.amount}}</view>
           <view wx:else class="result-big">{{fmt.fmtDur(calcResult.settlementHours, settingDurationFormat)}}</view>
-          <view class="result-sub">{{calcMode === 'money' ? '预计金额' : '可调休时长'}}{{calcMode === 'leave' ? '（' + settlementDays + '天' + settlementRemainHours + '小时）' : ''}}</view>
+          <view class="result-sub">{{calcMode === 'money' ? (payRule.mode === 'tier' && calcResult.tierText ? '本月档位 ' + calcResult.tierText : '预计金额') : '可调休时长'}}{{calcMode === 'leave' ? '（' + settlementDays + '天' + settlementRemainHours + '小时）' : ''}}</view>
         </view>
         <view class="result-divider"></view>
         <view class="result-grid">
           <view class="result-cell">
             <view class="r-num">{{calcResult.weekday}}</view>
-            <view class="r-label">平日{{calcMode === 'money' ? ' x1.5' : ''}}</view>
+            <view class="r-label">平日{{calcMode === 'money' && payRule.mode !== 'tier' ? ' x' + payRule.weekday : ''}}</view>
           </view>
           <view class="result-cell">
             <view class="r-num">{{calcResult.weekend}}</view>
-            <view class="r-label">周末{{calcMode === 'money' ? ' x2.0' : ''}}</view>
+            <view class="r-label">周末{{calcMode === 'money' && payRule.mode !== 'tier' ? ' x' + payRule.weekend : ''}}</view>
           </view>
           <view class="result-cell">
             <view class="r-num">{{calcResult.holiday}}</view>
-            <view class="r-label">节假日{{calcMode === 'money' ? ' x3.0' : ''}}</view>
+            <view class="r-label">节假日{{calcMode === 'money' && payRule.mode !== 'tier' ? ' x' + payRule.holiday : ''}}</view>
           </view>
-          <view wx:if="{{calcMode === 'money'}}" class="result-cell">
+          <view wx:if="{{calcMode === 'money' && payRule.mode !== 'tier'}}" class="result-cell">
             <view class="r-num accent">{{calcResult.weighted}}</view>
             <view class="r-label">折算工时</view>
           </view>
@@ -277,6 +280,18 @@
             <view class="r-label">请假</view>
           </view>
         </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card panel achievements-panel">
+    <view class="panel-title">我的成就</view>
+    <view wx:if="{{!unlockedAchievements.length}}" class="ach-empty">还没有解锁成就，继续记录下去吧</view>
+    <view wx:else class="ach-grid">
+      <view wx:for="{{unlockedAchievements}}" wx:key="id" class="ach-item" data-id="{{item.id}}" bindtap="showAchievementDetail">
+        <view class="ach-emoji">{{item.emoji}}</view>
+        <view class="ach-name">{{item.name}}</view>
+        <view class="ach-time">{{item.time}}</view>
       </view>
     </view>
   </view>
@@ -382,6 +397,118 @@
           <button class="btn-primary save-btn {{form.category === '请假' ? 'leave-save' : ''}}" bindtap="saveRecord">保存记录</button>
         </view>
       </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showPayRuleSheet}}" class="payrule-mask" bindtap="closePayRuleSheet">
+    <view class="payrule-sheet" catchtap="noop">
+      <view class="payrule-title">计算规则</view>
+      <view
+        wx:for="{{payRules}}"
+        wx:key="id"
+        class="payrule-item {{payRule.mode === item.id ? 'active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="selectPayRule"
+      >
+        <view class="payrule-info">
+          <view class="payrule-name">{{item.name}}</view>
+          <view class="payrule-sub">平日 x{{item.weekday}} · 周末 x{{item.weekend}} · 节假日 x{{item.holiday}} · {{item.deductLeave ? '调休抵扣' : '不抵扣'}}</view>
+        </view>
+        <view wx:if="{{payRule.mode === item.id}}" class="payrule-check">✓</view>
+      </view>
+      <view class="payrule-item {{payRuleDraft && payRuleDraft.mode === 'custom' ? 'active' : ''}}" data-id="custom" bindtap="selectPayRule">
+        <view class="payrule-info">
+          <view class="payrule-name">自定义</view>
+          <view class="payrule-sub">按下方倍数计算</view>
+        </view>
+        <view wx:if="{{payRule.mode === 'custom' && !payRuleDraft}}" class="payrule-check">✓</view>
+      </view>
+      <view class="payrule-item {{payRuleDraft && payRuleDraft.mode === 'tier' ? 'active' : ''}}" data-id="tier" bindtap="selectPayRule">
+        <view class="payrule-info">
+          <view class="payrule-name">阶梯规则</view>
+          <view class="payrule-sub">按累计加班时长分档计费</view>
+        </view>
+        <view wx:if="{{payRule.mode === 'tier' && !payRuleDraft}}" class="payrule-check">✓</view>
+      </view>
+      <block wx:if="{{payRuleDraft && payRuleDraft.mode === 'tier'}}">
+        <view class="payrule-edit">
+          <view class="payrule-sub" style="margin-bottom: 20rpx;">达到开始时长后按档位发固定加班费：前置档金额自定义，之后每档 = 上一档 + 递增金额</view>
+          <view class="payrule-edit-row">
+            <view class="f-label">开始时长（小时）</view>
+            <input class="payrule-input" type="digit" value="{{payRuleDraft.startHours}}" data-field="startHours" bindinput="onPayRuleField" />
+          </view>
+          <view class="front-head">前置档（可选，最多 3 个）</view>
+          <view wx:for="{{payRuleDraft.frontBrackets}}" wx:key="index" class="front-row">
+            <text class="front-label">间隔</text>
+            <input class="payrule-input front-input" type="digit" value="{{item.hours}}" data-index="{{index}}" data-field="hours" bindinput="onFrontField" />
+            <text class="front-label">小时</text>
+            <text class="front-label">金额</text>
+            <input class="payrule-input front-input" type="digit" value="{{item.amount}}" data-index="{{index}}" data-field="amount" bindinput="onFrontField" />
+            <text class="front-label">元</text>
+            <view class="front-del" data-index="{{index}}" bindtap="removeFrontBracket">✕</view>
+          </view>
+          <view wx:if="{{payRuleDraft.frontBrackets.length < 3}}" class="front-add" bindtap="addFrontBracket">+ 添加前置档</view>
+          <view class="payrule-edit-row">
+            <view class="f-label">每档间隔（小时）</view>
+            <input class="payrule-input" type="digit" value="{{payRuleDraft.intervalHours}}" data-field="intervalHours" bindinput="onPayRuleField" />
+          </view>
+          <view class="payrule-edit-row">
+            <view class="f-label">每档递增（元）</view>
+            <input class="payrule-input" type="digit" value="{{payRuleDraft.stepIncrement}}" data-field="stepIncrement" bindinput="onPayRuleField" />
+          </view>
+          <view class="payrule-edit-row">
+            <view class="f-label">首档金额（元）</view>
+            <input class="payrule-input" type="digit" value="{{payRuleDraft.baseAmount}}" data-field="baseAmount" bindinput="onPayRuleField" />
+          </view>
+          <view class="payrule-sub" style="margin-bottom: 20rpx;">「首档金额」在未添加前置档时生效</view>
+          <view class="payrule-edit-row">
+            <view class="f-label">最大时长（小时）</view>
+            <input class="payrule-input" type="digit" value="{{payRuleDraft.maxHours}}" data-field="maxHours" bindinput="onPayRuleField" />
+          </view>
+          <view class="payrule-edit-row">
+            <view class="f-label">请假抵扣加班</view>
+            <switch checked="{{payRuleDraft.deductLeave}}" color="#4f7af5" bindchange="onPayRuleDeduct" />
+          </view>
+          <button class="btn-primary payrule-confirm" bindtap="confirmPayRule">使用阶梯规则</button>
+        </view>
+      </block>
+      <block wx:if="{{payRuleDraft && payRuleDraft.mode === 'custom'}}">
+        <view class="payrule-edit">
+          <view class="payrule-edit-row">
+            <view class="f-label">平日倍数</view>
+            <input class="payrule-input" type="digit" value="{{payRuleDraft.weekday}}" data-field="weekday" bindinput="onPayRuleField" />
+          </view>
+          <view class="payrule-edit-row">
+            <view class="f-label">周末倍数</view>
+            <input class="payrule-input" type="digit" value="{{payRuleDraft.weekend}}" data-field="weekend" bindinput="onPayRuleField" />
+          </view>
+          <view class="payrule-edit-row">
+            <view class="f-label">节假日倍数</view>
+            <input class="payrule-input" type="digit" value="{{payRuleDraft.holiday}}" data-field="holiday" bindinput="onPayRuleField" />
+          </view>
+          <view class="payrule-edit-row">
+            <view class="f-label">请假抵扣加班</view>
+            <switch checked="{{payRuleDraft.deductLeave}}" color="#4f7af5" bindchange="onPayRuleDeduct" />
+          </view>
+          <button class="btn-primary payrule-confirm" bindtap="confirmPayRule">使用自定义规则</button>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <view wx:if="{{cheer.show}}" class="cheer-card {{cheer.kind === 'achievement' ? 'achievement' : ''}}" catchtap="noop">
+    <view class="cheer-emoji">{{cheer.emoji}}</view>
+    <view wx:if="{{cheer.title}}" class="cheer-title">{{cheer.title}}</view>
+    <view class="cheer-text">{{cheer.text}}</view>
+    <view class="cheer-caption">{{cheer.caption}}</view>
+  </view>
+
+  <view wx:if="{{showAchievementDetailCard && achievementDetail}}" class="ach-detail-mask" bindtap="closeAchievementDetail">
+    <view class="ach-detail-card" catchtap="noop">
+      <view class="ach-detail-close" bindtap="closeAchievementDetail">x</view>
+      <image wx:if="{{posterPreview}}" class="ach-detail-poster" src="{{posterPreview}}" mode="aspectFit" />
+      <view wx:else class="ach-detail-generating">海报生成中…</view>
+      <button class="btn-primary ach-poster-btn" bindtap="saveAchievementPosterImage">分享 / 保存</button>
     </view>
   </view>
 </view>

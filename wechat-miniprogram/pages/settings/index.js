@@ -31,7 +31,9 @@ Page({
     colorPickerType: '',
     colorPickerLabel: '',
     settingRestPeriods: [],
-    settingCloudSync: true
+    settingCloudSync: true,
+    settingCheer: true,
+    settingCalcAllTime: false
   },
 
   onLoad() {
@@ -46,7 +48,9 @@ Page({
       settingWeekStart: settings.weekStart || 'sunday',
       settingColors: { ...(settings.colors || DEFAULT_COLORS) },
       settingRestPeriods: clonePeriods(settings.restPeriods),
-      settingCloudSync: isCloudSyncEnabled()
+      settingCloudSync: isCloudSyncEnabled(),
+      settingCheer: settings.cheerEnabled !== false,
+      settingCalcAllTime: settings.calcAllTime === true
     });
   },
 
@@ -89,6 +93,14 @@ Page({
     this.setData({ settingCloudSync: e.detail.value });
   },
 
+  onCheerChange(e) {
+    this.setData({ settingCheer: e.detail.value });
+  },
+
+  onCalcAllTimeChange(e) {
+    this.setData({ settingCalcAllTime: e.detail.value });
+  },
+
   openColorPicker(e) {
     const type = e.currentTarget.dataset.type;
     const row = COLOR_TYPES.find((t) => t.type === type);
@@ -115,6 +127,10 @@ Page({
       periodStartDay: Number(this.data.settingPeriodStartDay) || 1,
       weekStart: this.data.settingWeekStart,
       colors: { ...this.data.settingColors },
+      cheerEnabled: this.data.settingCheer,
+      calcAllTime: this.data.settingCalcAllTime,
+      // 保留计算页选择的加班费规则，避免保存设置时被重置
+      payRule: loadSettings().payRule,
       restPeriods: clonePeriods(this.data.settingRestPeriods)
     };
     setCloudSyncEnabled(this.data.settingCloudSync);

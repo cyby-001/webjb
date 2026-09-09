@@ -1,11 +1,12 @@
-const { STORAGE_KEYS, DEFAULT_SETTINGS, DEFAULT_COLORS } = require('./constants');
+const { STORAGE_KEYS, DEFAULT_SETTINGS, DEFAULT_COLORS, PAY_RULES, DEFAULT_PAY_RULE } = require('./constants');
 const { cloneImages, clonePeriods } = require('./records');
 
 const CLOUD_COLLECTION = 'ot_profiles';
 const LOCAL_META_KEYS = {
   CLOUD_DOC_ID: 'ot_cloud_doc_id',
   UPDATED_AT: 'ot_state_updated_at',
-  CLOUD_SYNC: 'ot_cloud_sync_enabled'
+  CLOUD_SYNC: 'ot_cloud_sync_enabled',
+  ACHIEVEMENTS: 'ot_achievements'
 };
 
 function isCloudSyncEnabled() {
@@ -14,6 +15,16 @@ function isCloudSyncEnabled() {
 
 function setCloudSyncEnabled(enabled) {
   wx.setStorageSync(LOCAL_META_KEYS.CLOUD_SYNC, enabled !== false);
+}
+
+// 成就解锁表：{ id: unlockedAt }，可从记录推导，仅本地持久化
+function loadUnlockedAchievements() {
+  const stored = wx.getStorageSync(LOCAL_META_KEYS.ACHIEVEMENTS);
+  return stored && typeof stored === 'object' ? stored : {};
+}
+
+function saveUnlockedAchievements(map) {
+  wx.setStorageSync(LOCAL_META_KEYS.ACHIEVEMENTS, map && typeof map === 'object' ? map : {});
 }
 
 function cloneRecords(records) {
@@ -53,6 +64,9 @@ function buildSettings(source) {
     periodStartDay: Number.isFinite(Number(settings.periodStartDay)) && Number(settings.periodStartDay) >= 1 && Number(settings.periodStartDay) <= 28 ? Number(settings.periodStartDay) : 1,
     weekStart: settings.weekStart === 'monday' ? 'monday' : 'sunday',
     colors: normalizeColors(settings.colors),
+    cheerEnabled: settings.cheerEnabled !== false,
+    calcAllTime: settings.calcAllTime === true,
+    payRule: normalizePayRule(settings.payRule),
     restPeriods: Array.isArray(settings.restPeriods)
       ? clonePeriods(settings.restPeriods)
       : clonePeriods(DEFAULT_SETTINGS.restPeriods)
@@ -62,6 +76,44 @@ function buildSettings(source) {
 function normalizeRate(rate) {
   const num = Number(rate);
   return Number.isFinite(num) && num >= 0 ? num : 25;
+}
+
+function normalizeFrontBrackets(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((f) => ({
+      hours: Number(f && f.hours) > 0 ? Number(f.hours) : 0,
+      amount: Number.isFinite(Number(f && f.amount)) && Number(f && f.amount) >= 0 ? Number(f.amount) : 0
+    }))
+    .filter((f) => f.hours > 0)
+    .slice(0, 3);
+}
+
+function normalizePayRule(rule) {
+  const src = rule && typeof rule === 'object' ? rule : {};
+  const fallback = PAY_RULES.find((r) => r.id === src.mode) || PAY_RULES.find((r) => r.id === DEFAULT_PAY_RULE.mode);
+  const num = (value, dft) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? Number(n.toFixed(2)) : dft;
+  };
+  const posNum = (value, dft) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : dft;
+  };
+  return {
+    mode: PAY_RULES.some((r) => r.id === src.mode) || src.mode === 'custom' || src.mode === 'tier' ? src.mode : DEFAULT_PAY_RULE.mode,
+    weekday: num(src.weekday, fallback.weekday),
+    weekend: num(src.weekend, fallback.weekend),
+    holiday: num(src.holiday, fallback.holiday),
+    deductLeave: src.deductLeave !== false,
+    // 阶梯规则参数：前置档（间隔与金额自定义）+ 统一档（间隔/递增）+ 最大时长（0=不封顶）
+    startHours: num(src.startHours, 40),
+    frontBrackets: normalizeFrontBrackets(src.frontBrackets),
+    intervalHours: posNum(src.intervalHours, 5),
+    baseAmount: num(src.baseAmount, 600),
+    stepIncrement: num(src.stepIncrement, 100),
+    maxHours: num(src.maxHours, 60)
+  };
 }
 
 function normalizeColors(colors) {
@@ -333,5 +385,7 @@ module.exports = {
   loadSettings,
   saveSettings,
   isCloudSyncEnabled,
-  setCloudSyncEnabled
+  setCloudSyncEnabled,
+  loadUnlockedAchievements,
+  saveUnlockedAchievements
 };

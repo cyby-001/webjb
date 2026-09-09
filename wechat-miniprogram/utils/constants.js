@@ -31,6 +31,13 @@ const DEFAULT_COLORS = {
   leave: '#b38cff'
 };
 
+// 加班费计算规则：法定标准预设 + 自定义（mode='custom'，倍数可编辑）+ 阶梯（mode='tier'）
+const PAY_RULES = [
+  { id: 'standard', name: '法定标准', weekday: 1.5, weekend: 2, holiday: 3, deductLeave: true }
+];
+
+const DEFAULT_PAY_RULE = { mode: 'standard', weekday: 1.5, weekend: 2, holiday: 3, deductLeave: true };
+
 const DEFAULT_SETTINGS = {
   otDefaultStart: '18:00',
   otDefaultEnd: '20:00',
@@ -40,6 +47,9 @@ const DEFAULT_SETTINGS = {
   periodStartDay: 1,
   weekStart: 'sunday',
   colors: DEFAULT_COLORS,
+  cheerEnabled: true,
+  calcAllTime: false,
+  payRule: DEFAULT_PAY_RULE,
   restPeriods: [
     { id: '1', start: '12:00', end: '13:00', label: '午休' },
     { id: '2', start: '17:00', end: '18:00', label: '晚饭' }
@@ -61,5 +71,7 @@ module.exports = {
   LeaveType,
   DEFAULT_SETTINGS,
   DEFAULT_COLORS,
-  COLOR_CHOICES
+  COLOR_CHOICES,
+  PAY_RULES,
+  DEFAULT_PAY_RULE
 };
