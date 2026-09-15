@@ -1,5 +1,5 @@
 const { RecordCategory, OvertimeType, LeaveType, DEFAULT_COLORS, PAY_RULES } = require('../../utils/constants');
-const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate, loadUnlockedAchievements, saveUnlockedAchievements } = require('../../utils/storage');
+const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate, loadUnlockedAchievements, saveUnlockedAchievements, loadCompactCardPreference, saveCompactCardPreference, loadCalcModePreference, saveCalcModePreference } = require('../../utils/storage');
 const { ACHIEVEMENTS, evaluateAchievements } = require('../../utils/achievements');
 const { payrollEstimate, cloneImages } = require('../../utils/records');
 const { formatDate, calcDuration, getPeriodKey, getMonthMeta, endForDuration } = require('../../utils/time');
@@ -456,6 +456,8 @@ Page({
     calcEnd: '',
     calcResult: { ...EMPTY_CALC_RESULT },
     calcMode: 'money',
+    isCompactCard: true,
+    compactRangeText: '',
     settlementDays: 0,
     settlementRemainHours: 0
   },
@@ -1375,6 +1377,8 @@ ensureDonutCanvas(retries = 5) {
     const totalHours = calcResult.settlementHours || 0;
     const settlementDays = Math.floor(totalHours / 8);
     const settlementRemainHours = Number((totalHours % 8).toFixed(1));
+    const compactRangeText = settings.calcAllTime && records.length ? '全部记录' : `${calcStart || '—'} ~ ${calcEnd || '—'}`;
+    const savedCalcMode = loadCalcModePreference();
 
     const settingsData = normalizeSettingsState(settings);
 
@@ -1383,6 +1387,9 @@ ensureDonutCanvas(retries = 5) {
       records,
       settings,
       hourlyRate,
+      calcMode: savedCalcMode,
+      isCompactCard: loadCompactCardPreference(),
+      compactRangeText,
       selectedMonthCursor,
       currentYearLabel: String(targetDate.getFullYear()),
       monthLabel: buildMonthLabel(targetDate),
@@ -1490,7 +1497,14 @@ ensureDonutCanvas(retries = 5) {
   switchCalcMode(e) {
     const mode = e.currentTarget.dataset.mode;
     if (!mode || mode === this.data.calcMode) return;
+    saveCalcModePreference(mode);
     this.setData({ calcMode: mode });
+  },
+
+  toggleCompactCard() {
+    const next = !this.data.isCompactCard;
+    saveCompactCardPreference(next);
+    this.setData({ isCompactCard: next });
   },
 
   /* ========== pay rule switcher ========== */

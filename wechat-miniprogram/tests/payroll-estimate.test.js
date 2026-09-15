@@ -231,4 +231,22 @@ const FRONT_RULE = {
   assert.strictEqual(rule.intervalHours, 5);
 })();
 
+(function shouldNormalizeOvertimeCardCompactPreference() {
+  global.wx = { getStorageSync: () => undefined, setStorageSync: () => {} };
+  const { normalizeCompactCardPreference } = require('../utils/storage');
+  assert.strictEqual(normalizeCompactCardPreference(undefined), true);
+  assert.strictEqual(normalizeCompactCardPreference('compact'), true);
+  assert.strictEqual(normalizeCompactCardPreference('expanded'), false);
+  assert.strictEqual(normalizeCompactCardPreference(false), false);
+})();
+
+(function shouldNormalizeCalcModePreference() {
+  global.wx = { getStorageSync: () => undefined, setStorageSync: () => {} };
+  const { normalizeCalcModePreference } = require('../utils/storage');
+  assert.strictEqual(normalizeCalcModePreference(undefined), 'money');
+  assert.strictEqual(normalizeCalcModePreference('money'), 'money');
+  assert.strictEqual(normalizeCalcModePreference('leave'), 'leave');
+  assert.strictEqual(normalizeCalcModePreference('illegal'), 'money');
+})();
+
 console.log('payrollEstimate tests passed');

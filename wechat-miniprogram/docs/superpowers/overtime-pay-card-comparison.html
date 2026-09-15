@@ -33,13 +33,13 @@
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 14px; padding-top: 12px; border-top: 1px solid #e5edf8; }
     .num { color: #3e526d; font-size: 15px; font-weight: 800; }
     .name { margin-top: 3px; color: #94a3b8; font-size: 10px; }
-    .compact-card { min-height: 180px; padding: 0 17px 17px; display: flex; flex-direction: column; background: linear-gradient(135deg, #f7fbff 0%, #eef9f6 100%); }
-    .compact-card .card-head { padding: 0; background: transparent; }
-    .compact-card .toggle { color: #3d6fd3; background: rgba(255,255,255,.78); box-shadow: 0 2px 8px rgba(71, 112, 164, .08); }
+    .compact-card { min-height: 180px; padding: 0 17px 17px; display: flex; flex-direction: column; background: linear-gradient(135deg, #edf6ff 0%, #eefaf5 100%); border: 1px solid #e7edf6; box-shadow: 0 8px 22px rgba(15,23,42,.04); }
+    .compact-card .card-head { padding: 0; background: transparent; border-bottom: 1px solid rgba(148,163,184,.18); }
+    .compact-card .toggle { color: #526c8e; background: rgba(255,255,255,.72); border: 1px solid #dfeaf8; box-shadow: 0 4px 10px rgba(15,23,42,.04); }
     .compact-result { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-    .eyebrow { color: #4f7797; font-size: 13px; font-weight: 700; }
-    .compact-result .amount { margin-top: 8px; font-size: 42px; }
-    .period { display: inline-flex; width: fit-content; margin-top: 11px; padding: 5px 9px; border-radius: 999px; color: #66819b; background: rgba(255,255,255,.65); font-size: 11px; }
+    .eyebrow { color: #64748b; font-size: 13px; font-weight: 700; }
+    .compact-result .amount { margin-top: 8px; color: #0f172a; font-size: 42px; }
+    .period { display: inline-flex; width: fit-content; margin-top: 11px; padding: 5px 9px; border-radius: 999px; color: #7c8ca3; background: rgba(255,255,255,.72); font-size: 11px; }
     .note { margin-top: 14px; padding: 13px 14px; border-left: 3px solid #4f7af5; border-radius: 8px; color: #61718a; background: #f6f9fe; font-size: 13px; line-height: 1.55; }
     @media (max-width: 720px) { body { padding-top: 22px; } .compare { grid-template-columns: 1fr; } }
   </style>
@@ -71,7 +71,7 @@
             <div class="card-head"><span class="title">加班费估算</span><button class="toggle">展开详情</button></div>
             <div class="compact-result"><div class="eyebrow">预估加班费</div><div class="amount">¥1,125.00</div><div class="period">本结算周期 · 9 月 1 日–9 月 30 日</div></div>
           </div>
-          <div class="note">默认只突出金额，卡片高度约为完整模式的三分之一；规则、日期、时薪、调休切换及工时明细均在展开后查看与编辑。</div>
+          <div class="note">默认只突出金额，卡片高度约为完整模式的三分之一；展开后恢复原规则、时薪和调休/报酬切换，且调休场景仍保留金额概览。</div>
         </div>
       </article>
     </section>

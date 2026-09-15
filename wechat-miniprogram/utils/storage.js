@@ -8,6 +8,8 @@ const LOCAL_META_KEYS = {
   CLOUD_SYNC: 'ot_cloud_sync_enabled',
   ACHIEVEMENTS: 'ot_achievements'
 };
+const COMPACT_CARD_KEY = 'ot_stats_card_compact';
+const CALC_MODE_KEY = 'ot_stats_calc_mode';
 
 function isCloudSyncEnabled() {
   return wx.getStorageSync(LOCAL_META_KEYS.CLOUD_SYNC) !== false;
@@ -76,6 +78,33 @@ function buildSettings(source) {
 function normalizeRate(rate) {
   const num = Number(rate);
   return Number.isFinite(num) && num >= 0 ? num : 25;
+}
+
+function normalizeCompactCardPreference(value) {
+  if (value === false || value === 'expanded' || value === 'false') return false;
+  if (value === true || value === 'compact' || value === 'true') return true;
+  return true;
+}
+
+function normalizeCalcModePreference(value) {
+  if (value === 'leave') return 'leave';
+  return 'money';
+}
+
+function loadCompactCardPreference() {
+  return normalizeCompactCardPreference(wx.getStorageSync(COMPACT_CARD_KEY));
+}
+
+function saveCompactCardPreference(isCompact) {
+  wx.setStorageSync(COMPACT_CARD_KEY, normalizeCompactCardPreference(isCompact));
+}
+
+function loadCalcModePreference() {
+  return normalizeCalcModePreference(wx.getStorageSync(CALC_MODE_KEY));
+}
+
+function saveCalcModePreference(mode) {
+  wx.setStorageSync(CALC_MODE_KEY, normalizeCalcModePreference(mode));
 }
 
 function normalizeFrontBrackets(list) {
@@ -387,5 +416,11 @@ module.exports = {
   isCloudSyncEnabled,
   setCloudSyncEnabled,
   loadUnlockedAchievements,
-  saveUnlockedAchievements
+  saveUnlockedAchievements,
+  normalizeCompactCardPreference,
+  loadCompactCardPreference,
+  saveCompactCardPreference,
+  normalizeCalcModePreference,
+  loadCalcModePreference,
+  saveCalcModePreference
 };

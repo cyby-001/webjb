@@ -1475,12 +1475,71 @@
   overflow: hidden;
 }
 
+.calc-shell.compact-card {
+  background: rgba(255, 255, 255, 0.98);
+  border: 1rpx solid #e7edf6;
+  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.04);
+}
+
+.calc-shell.expanded-card {
+  background: rgba(255, 255, 255, 0.98);
+}
+
 .calc-head {
   min-height: 90rpx;
   padding: 0 20rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12rpx;
+}
+
+.calc-head-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calc-head-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.calc-rule-btn {
+  height: 42rpx;
+  padding: 0 12rpx;
+  border-radius: 999rpx;
+  background: #f3f7ff;
+  border: 1rpx solid #e6edf7;
+  color: #4f6da0;
+  font-size: 20rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calc-toggle-btn {
+  height: 34rpx;
+  padding: 0 12rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1rpx solid #dfeaf8;
+  color: #526c8e;
+  font-size: 22rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 10rpx rgba(15, 23, 42, 0.04);
+  line-height: 1.1;
 }
 
 .calc-mode-switch {
@@ -1509,6 +1568,47 @@
   box-shadow: 0 4rpx 10rpx rgba(59, 130, 246, 0.08);
 }
 
+
+.calc-compact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 0 20rpx 18rpx;
+  border-top: 1rpx solid rgba(148, 163, 184, 0.18);
+}
+
+.calc-compact-main {
+  width: 100%;
+  padding-top: 18rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.calc-compact-label {
+  color: #64748b;
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.calc-compact-amount {
+  margin-top: 2rpx;
+  color: #059669;
+  font-size: 58rpx;
+  font-weight: 900;
+  line-height: 1.05;
+  text-align: center;
+  letter-spacing: -0.5rpx;
+}
+
+.calc-compact-range {
+  color: #7a8aa3;
+  font-size: 20rpx;
+  font-weight: 600;
+  text-align: center;
+}
 
 .calc-body {
   padding: 0 20rpx 20rpx;

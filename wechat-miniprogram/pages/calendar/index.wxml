@@ -172,68 +172,29 @@
   </view>
 </view>
 
-  <view class="card panel">
-    <view class="panel-top">
-      <view class="panel-title">加班趋势</view>
-      <view class="range-row">
-        <view wx:for="{{rangeOptions}}" wx:key="key" class="range-pill {{activeRange === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setRange">{{item.label}}</view>
-      </view>
-    </view>
-    <view wx:if="{{trendMaxText}}" class="trend-note">加班峰值：{{trendMaxText}}</view>
-    <view class="chart-hint {{chartHint ? 'active' : ''}}">{{chartHint}}</view>
-    <view class="bar-area">
-      <view class="bar-col {{trendCursor === index ? 'active' : ''}}" wx:for="{{trendBars}}" wx:key="month" data-index="{{index}}" data-label="{{item.shortLabel}}" data-ot="{{item.otHours}}" data-leave="{{item.leaveHours}}" bindtap="onTrendTap">
-        <view class="bars">
-          <view wx:if="{{item.otHeight > 0}}" class="bar ot" style="height: {{item.otHeight}}rpx"></view>
-          <view wx:if="{{item.leaveHeight > 0}}" class="bar leave" style="height: {{item.leaveHeight}}rpx"></view>
-        </view>
-        <view class="bar-label">{{item.shortLabel}}月</view>
-      </view>
-    </view>
-    <view class="legend-row trend-legend">
-      <view class="legend-item"><text class="dot blue"></text><text>加班</text></view>
-      <view class="legend-item"><text class="dot purple"></text><text>请假</text></view>
-    </view>
-  </view>
-
-  <view class="card panel">
-    <view class="panel-top detail-top">
-      <view class="panel-title">记录明细 <text class="detail-sub">（按所选时间范围）</text></view>
-      <view class="detail-filters">
-        <view class="filter-pill {{detailFilter === 'all' ? 'active' : ''}}" data-filter="all" bindtap="setDetailFilter">全部</view>
-        <view class="filter-pill {{detailFilter === 'ot' ? 'active' : ''}}" data-filter="ot" bindtap="setDetailFilter">加班</view>
-        <view class="filter-pill {{detailFilter === 'leave' ? 'active' : ''}}" data-filter="leave" bindtap="setDetailFilter">请假</view>
-      </view>
-    </view>
-    <scroll-view wx:if="{{detailRecords.length}}" class="detail-scroll" scroll-y="true" enhanced="true" show-scrollbar="false">
-      <view class="detail-list">
-        <view class="detail-item" wx:for="{{detailRecords}}" wx:key="id">
-          <view class="detail-date">{{item.shortDate}}</view>
-          <view class="detail-main">
-            <view class="detail-line">
-              <view class="type-badge {{item.badgeClass}}">{{item.badgeText}}</view>
-              <view class="detail-hours">{{fmt.fmtDur(item.duration, settingDurationFormat)}}</view>
-              <view wx:if="{{item.note}}" class="detail-note">{{item.note}}</view>
-            </view>
-          </view>
-        </view>
-      </view>
-    </scroll-view>
-    <view wx:else class="empty-text">当前范围内暂无记录</view>
-  </view>
-
-  <view class="card calc-shell">
+  <view class="card panel calc-shell {{isCompactCard ? 'compact-card' : 'expanded-card'}}">
     <view class="calc-head">
-      <view class="panel-title">{{calcMode === 'money' ? '加班费估算' : '调休时长'}}</view>
+      <view class="calc-head-title panel-title">{{calcMode === 'money' ? '加班费估算' : '调休时长'}}</view>
       <view class="calc-head-right">
-        <view class="calc-rule-btn" bindtap="openPayRuleSheet">{{payRuleName}} ▾</view>
-        <view class="calc-mode-switch">
+        <view wx:if="{{!isCompactCard}}" class="calc-rule-btn" bindtap="openPayRuleSheet">{{payRuleName}} ▾</view>
+        <view wx:if="{{!isCompactCard}}" class="calc-mode-switch">
           <view class="calc-mode-item {{calcMode === 'money' ? 'active' : ''}}" data-mode="money" bindtap="switchCalcMode">报酬</view>
           <view class="calc-mode-item {{calcMode === 'leave' ? 'active' : ''}}" data-mode="leave" bindtap="switchCalcMode">调休</view>
         </view>
+        <view class="calc-toggle-btn" bindtap="toggleCompactCard">{{isCompactCard ? '展开详情' : '收起'}}</view>
       </view>
     </view>
-    <view class="calc-body">
+
+    <view wx:if="{{isCompactCard}}" class="calc-compact-body">
+      <view class="calc-compact-main">
+        <view class="calc-compact-label">{{calcMode === 'money' ? '预估加班费' : '可调休时长'}}</view>
+        <view wx:if="{{calcMode === 'money'}}" class="calc-compact-amount">￥{{calcResult.amount}}</view>
+        <view wx:else class="calc-compact-amount">{{fmt.fmtDur(calcResult.settlementHours, settingDurationFormat)}}</view>
+      </view>
+      <view class="calc-compact-range">{{compactRangeText}}</view>
+    </view>
+
+    <view wx:else class="calc-body">
       <view class="calc-tip">根据时间范围和加班类型自动估算，输入变化实时更新，结果请以实际工资规则为准。</view>
       <view class="form-row">
         <view class="f-label">开始日期</view>
@@ -282,6 +243,56 @@
         </view>
       </view>
     </view>
+  </view>
+
+  <view class="card panel">
+    <view class="panel-top">
+      <view class="panel-title">加班趋势</view>
+      <view class="range-row">
+        <view wx:for="{{rangeOptions}}" wx:key="key" class="range-pill {{activeRange === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setRange">{{item.label}}</view>
+      </view>
+    </view>
+    <view wx:if="{{trendMaxText}}" class="trend-note">加班峰值：{{trendMaxText}}</view>
+    <view class="chart-hint {{chartHint ? 'active' : ''}}">{{chartHint}}</view>
+    <view class="bar-area">
+      <view class="bar-col {{trendCursor === index ? 'active' : ''}}" wx:for="{{trendBars}}" wx:key="month" data-index="{{index}}" data-label="{{item.shortLabel}}" data-ot="{{item.otHours}}" data-leave="{{item.leaveHours}}" bindtap="onTrendTap">
+        <view class="bars">
+          <view wx:if="{{item.otHeight > 0}}" class="bar ot" style="height: {{item.otHeight}}rpx"></view>
+          <view wx:if="{{item.leaveHeight > 0}}" class="bar leave" style="height: {{item.leaveHeight}}rpx"></view>
+        </view>
+        <view class="bar-label">{{item.shortLabel}}月</view>
+      </view>
+    </view>
+    <view class="legend-row trend-legend">
+      <view class="legend-item"><text class="dot blue"></text><text>加班</text></view>
+      <view class="legend-item"><text class="dot purple"></text><text>请假</text></view>
+    </view>
+  </view>
+
+  <view class="card panel">
+    <view class="panel-top detail-top">
+      <view class="panel-title">记录明细 <text class="detail-sub">（按所选时间范围）</text></view>
+      <view class="detail-filters">
+        <view class="filter-pill {{detailFilter === 'all' ? 'active' : ''}}" data-filter="all" bindtap="setDetailFilter">全部</view>
+        <view class="filter-pill {{detailFilter === 'ot' ? 'active' : ''}}" data-filter="ot" bindtap="setDetailFilter">加班</view>
+        <view class="filter-pill {{detailFilter === 'leave' ? 'active' : ''}}" data-filter="leave" bindtap="setDetailFilter">请假</view>
+      </view>
+    </view>
+    <scroll-view wx:if="{{detailRecords.length}}" class="detail-scroll" scroll-y="true" enhanced="true" show-scrollbar="false">
+      <view class="detail-list">
+        <view class="detail-item" wx:for="{{detailRecords}}" wx:key="id">
+          <view class="detail-date">{{item.shortDate}}</view>
+          <view class="detail-main">
+            <view class="detail-line">
+              <view class="type-badge {{item.badgeClass}}">{{item.badgeText}}</view>
+              <view class="detail-hours">{{fmt.fmtDur(item.duration, settingDurationFormat)}}</view>
+              <view wx:if="{{item.note}}" class="detail-note">{{item.note}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+    <view wx:else class="empty-text">当前范围内暂无记录</view>
   </view>
 
   <view class="card panel achievements-panel">
