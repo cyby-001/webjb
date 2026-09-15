@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>加班费卡片模式对比</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1e293b; background: #eef3fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px 18px 48px; }
+    main { max-width: 1024px; margin: 0 auto; }
+    h1 { margin: 0; font-size: 28px; letter-spacing: -.5px; }
+    .intro { margin: 10px 0 30px; color: #64748b; font-size: 15px; line-height: 1.6; }
+    .compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+    .option { min-width: 0; }
+    .caption { display: flex; align-items: center; gap: 9px; margin: 0 0 12px; font-weight: 750; }
+    .tag { padding: 4px 9px; border-radius: 20px; background: #dbeafe; color: #3563eb; font-size: 12px; }
+    .phone { overflow: hidden; padding: 18px 14px 26px; border: 1px solid #d9e3f2; border-radius: 28px; background: #f8fbff; box-shadow: 0 18px 44px rgba(50, 87, 143, .13); }
+    .card { overflow: hidden; border-radius: 19px; background: #fff; box-shadow: 0 6px 20px rgba(54, 90, 145, .08); }
+    .card-head { min-height: 58px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #edf2f7; }
+    .title { font-size: 16px; font-weight: 800; }
+    .head-actions { display: flex; align-items: center; gap: 8px; }
+    .rule { padding: 6px 8px; border-radius: 8px; color: #66758c; background: #f3f6fa; font-size: 11px; }
+    .switch, .toggle { padding: 6px 9px; border: 0; border-radius: 9px; color: #3563eb; background: #edf4ff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .switch { color: #fff; background: #4f7af5; }
+    .detail { padding: 15px 16px 17px; }
+    .tip { margin: 0 0 13px; color: #94a3b8; font-size: 11px; line-height: 1.5; }
+    .row { display: flex; align-items: center; justify-content: space-between; margin: 9px 0; color: #64748b; font-size: 13px; }
+    .input { min-width: 138px; padding: 8px 10px; border-radius: 8px; color: #475569; background: #f7faff; font-size: 12px; text-align: right; }
+    .result { margin-top: 14px; padding: 17px; border-radius: 14px; text-align: center; background: linear-gradient(180deg, #f8fbff, #f4f8ff); }
+    .amount { color: #059669; font-size: 31px; line-height: 1; font-weight: 850; letter-spacing: -.8px; }
+    .label { margin-top: 6px; color: #8aa0be; font-size: 11px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 14px; padding-top: 12px; border-top: 1px solid #e5edf8; }
+    .num { color: #3e526d; font-size: 15px; font-weight: 800; }
+    .name { margin-top: 3px; color: #94a3b8; font-size: 10px; }
+    .compact-card { min-height: 180px; padding: 0 17px 17px; display: flex; flex-direction: column; background: linear-gradient(135deg, #f7fbff 0%, #eef9f6 100%); }
+    .compact-card .card-head { padding: 0; background: transparent; }
+    .compact-card .toggle { color: #3d6fd3; background: rgba(255,255,255,.78); box-shadow: 0 2px 8px rgba(71, 112, 164, .08); }
+    .compact-result { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .eyebrow { color: #4f7797; font-size: 13px; font-weight: 700; }
+    .compact-result .amount { margin-top: 8px; font-size: 42px; }
+    .period { display: inline-flex; width: fit-content; margin-top: 11px; padding: 5px 9px; border-radius: 999px; color: #66819b; background: rgba(255,255,255,.65); font-size: 11px; }
+    .note { margin-top: 14px; padding: 13px 14px; border-left: 3px solid #4f7af5; border-radius: 8px; color: #61718a; background: #f6f9fe; font-size: 13px; line-height: 1.55; }
+    @media (max-width: 720px) { body { padding-top: 22px; } .compare { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>加班费卡片：完整模式与简洁模式</h1>
+    <p class="intro">右侧是拟议的默认样式：金额优先，保留一行结算范围作为轻量上下文；点击“展开详情”即可回到现有完整卡片。</p>
+    <section class="compare">
+      <article class="option">
+        <div class="caption"><span>现有完整模式</span><span class="tag">展开后保留</span></div>
+        <div class="phone">
+          <div class="card">
+            <div class="card-head"><span class="title">加班费估算</span><div class="head-actions"><span class="rule">法定标准</span><button class="switch">报酬</button></div></div>
+            <div class="detail">
+              <p class="tip">根据时间范围和加班类型自动估算，输入变化实时更新。</p>
+              <div class="row"><span>开始日期</span><span class="input">2026-09-01</span></div>
+              <div class="row"><span>结束日期</span><span class="input">2026-09-30</span></div>
+              <div class="row"><span>时薪</span><span class="input">¥25</span></div>
+              <div class="result"><div class="amount">¥1,125.00</div><div class="label">预估金额</div><div class="stats"><div><div class="num">12</div><div class="name">平日</div></div><div><div class="num">4</div><div class="name">周末</div></div><div><div class="num">0</div><div class="name">节假日</div></div><div><div class="num">45</div><div class="name">折算工时</div></div></div></div>
+            </div>
+          </div>
+        </div>
+      </article>
+      <article class="option">
+        <div class="caption"><span>拟议默认简洁模式</span><span class="tag">默认展示</span></div>
+        <div class="phone">
+          <div class="card compact-card">
+            <div class="card-head"><span class="title">加班费估算</span><button class="toggle">展开详情</button></div>
+            <div class="compact-result"><div class="eyebrow">预估加班费</div><div class="amount">¥1,125.00</div><div class="period">本结算周期 · 9 月 1 日–9 月 30 日</div></div>
+          </div>
+          <div class="note">默认只突出金额，卡片高度约为完整模式的三分之一；规则、日期、时薪、调休切换及工时明细均在展开后查看与编辑。</div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
