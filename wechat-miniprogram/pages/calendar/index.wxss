@@ -168,6 +168,41 @@
   padding-top: 0;
 }
 
+.pay-bar {
+  display: flex;
+  align-items: center;
+  margin-top: 18rpx;
+  padding: 18rpx 28rpx;
+}
+
+.pay-bar-cell {
+  flex: 1;
+  min-width: 0;
+}
+
+.pay-bar-label {
+  color: #8a97ab;
+  font-size: 22rpx;
+}
+
+.pay-bar-value {
+  margin-top: 6rpx;
+  color: #1f2937;
+  font-size: 36rpx;
+  font-weight: 800;
+}
+
+.pay-bar-value.accent {
+  color: #059669;
+}
+
+.pay-bar-line {
+  width: 1rpx;
+  height: 48rpx;
+  margin: 0 24rpx;
+  background: #eef2f8;
+}
+
 .calendar-card {
   margin-top: 18rpx;
   overflow: hidden;

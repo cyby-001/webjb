@@ -43,6 +43,10 @@
       <switch checked="{{settingCalcAllTime}}" color="#4f7af5" bindchange="onCalcAllTimeChange" />
     </view>
     <view class="settings-sub">开启后加班费 / 调休按全部记录统计，不随月份切换变化</view>
+    <view class="settings-row-top gap-top">
+      <view class="settings-label">日历页加班概览条</view>
+      <switch checked="{{settingPayBar}}" color="#4f7af5" bindchange="onPayBarChange" />
+    </view>
   </view>
 
   <view class="info-card">

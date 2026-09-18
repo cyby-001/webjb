@@ -403,6 +403,10 @@ Page({
     monthTitle: '',
     calMonthOptions: [],
     calMonthIndex: 0,
+    payBarEnabled: true,
+    payBarOt: 0,
+    payBarAmount: 0,
+    payBarLeave: 0,
     monthDays: [],
     lunarInfo: '',
     settings: {},
@@ -707,8 +711,39 @@ ensureDonutCanvas(retries = 5) {
     const selectedDayState = buildSelectedDayState(selectedDate, this.data.records);
     const calMonthOptions = buildStatsMonthOptions(this.data.records);
     const calMonthIndex = Math.max(0, calMonthOptions.findIndex((o) => o.cursor === currentMonthCursor));
+    // 细条数字与统计页同源：翻月即按该月结算周期重算（统计页翻月同样会重置范围），全时段开关优先
+    const paySettings = loadSettings();
+    const payStartDay = paySettings.periodStartDay || 1;
+    let { calcStart: payStart, calcEnd: payEnd } = calcPeriodRange(currentDate, payStartDay);
+    if (paySettings.calcAllTime && this.data.records.length) {
+      payStart = this.data.records[0].date;
+      payEnd = payStart;
+      this.data.records.forEach((r) => {
+        if (r.date < payStart) payStart = r.date;
+        if (r.date > payEnd) payEnd = r.date;
+      });
+    }
+    const payCalc = buildCalcResult(this.data.records, payStart, payEnd, loadHourlyRate(), paySettings.payRule);
+    const paySummary = buildMonthSummaryForCursor(this.data.records, currentMonthCursor, payStartDay);
     wx.setStorageSync(SELECTED_MONTH_CURSOR_KEY, currentMonthCursor);
-    this.setData({ currentMonthCursor, monthTitle, monthDays, lunarInfo, calMonthOptions, calMonthIndex, ...selectedDayState });
+    this.setData({
+      currentMonthCursor,
+      monthTitle,
+      monthDays,
+      lunarInfo,
+      calMonthOptions,
+      calMonthIndex,
+      payBarEnabled: paySettings.payBarEnabled !== false,
+      payBarOt: paySummary.otHours,
+      payBarAmount: payCalc.amount,
+      payBarLeave: payCalc.settlementHours,
+      calcMode: loadCalcModePreference(),
+      ...selectedDayState
+    });
+  },
+
+  openStatsFromPayBar() {
+    this.switchTab('stats');
   },
 
   onCalMonthPick(e) {

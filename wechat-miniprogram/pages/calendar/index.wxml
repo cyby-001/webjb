@@ -40,6 +40,18 @@
 
   <!-- ====== 日历视图 ====== -->
   <block wx:if="{{currentTab === 'calendar'}}">
+  <view wx:if="{{payBarEnabled}}" class="card pay-bar" bindtap="openStatsFromPayBar">
+    <view class="pay-bar-cell">
+      <view class="pay-bar-label">本周期加班</view>
+      <view class="pay-bar-value">{{fmt.fmtNum(payBarOt, settingDurationFormat)}}<text wx:if="{{settingDurationFormat === 'hour'}}" class="val-unit">h</text></view>
+    </view>
+    <view class="pay-bar-line"></view>
+    <view class="pay-bar-cell">
+      <view class="pay-bar-label">{{calcMode === 'money' ? '加班费估算' : '可调休时长'}}</view>
+      <view wx:if="{{calcMode === 'money'}}" class="pay-bar-value accent">￥{{payBarAmount}}</view>
+      <view wx:else class="pay-bar-value accent">{{fmt.fmtDur(payBarLeave, settingDurationFormat)}}</view>
+    </view>
+  </view>
   <view class="card calendar-card">
     <view class="calendar-head">
       <view class="month-btn" bindtap="prevMonth"><view class="month-arrow left"></view></view>

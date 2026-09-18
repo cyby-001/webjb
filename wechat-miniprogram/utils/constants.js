@@ -49,6 +49,7 @@ const DEFAULT_SETTINGS = {
   colors: DEFAULT_COLORS,
   cheerEnabled: true,
   calcAllTime: false,
+  payBarEnabled: true,
   payRule: DEFAULT_PAY_RULE,
   restPeriods: [
     { id: '1', start: '12:00', end: '13:00', label: '午休' }

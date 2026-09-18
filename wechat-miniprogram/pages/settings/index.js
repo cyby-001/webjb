@@ -33,7 +33,8 @@ Page({
     settingRestPeriods: [],
     settingCloudSync: true,
     settingCheer: true,
-    settingCalcAllTime: false
+    settingCalcAllTime: false,
+    settingPayBar: true
   },
 
   onLoad() {
@@ -50,7 +51,8 @@ Page({
       settingRestPeriods: clonePeriods(settings.restPeriods),
       settingCloudSync: isCloudSyncEnabled(),
       settingCheer: settings.cheerEnabled !== false,
-      settingCalcAllTime: settings.calcAllTime === true
+      settingCalcAllTime: settings.calcAllTime === true,
+      settingPayBar: settings.payBarEnabled !== false
     });
   },
 
@@ -67,6 +69,7 @@ Page({
       colors: { ...this.data.settingColors },
       cheerEnabled: this.data.settingCheer,
       calcAllTime: this.data.settingCalcAllTime,
+      payBarEnabled: this.data.settingPayBar,
       // 保留计算页选择的加班费规则，避免写设置时被重置
       payRule: loadSettings().payRule,
       restPeriods: clonePeriods(this.data.settingRestPeriods)
@@ -135,6 +138,11 @@ Page({
 
   onCalcAllTimeChange(e) {
     this.setData({ settingCalcAllTime: e.detail.value });
+    this.persist();
+  },
+
+  onPayBarChange(e) {
+    this.setData({ settingPayBar: e.detail.value });
     this.persist();
   },
 
