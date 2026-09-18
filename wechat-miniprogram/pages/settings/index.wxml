@@ -25,7 +25,7 @@
     <view class="settings-label gap-top">考勤周期起始日</view>
     <view class="period-day-row">
       <view class="period-day-label">每月</view>
-      <input class="period-day-input" type="number" value="{{settingPeriodStartDay}}" bindinput="onPeriodStartDayInput" />
+      <input class="period-day-input" type="number" value="{{settingPeriodStartDay}}" bindinput="onPeriodStartDayInput" bindblur="onPeriodStartDayBlur" />
       <view class="period-day-label">号开始</view>
     </view>
     <view class="settings-label gap-top">时长显示模式</view>
@@ -116,6 +116,4 @@
     </view>
     <view class="settings-sub">保存加班记录后随机弹出</view>
   </view>
-
-  <button class="btn-primary settings-save" bindtap="saveSettings">保存设置</button>
 </view>

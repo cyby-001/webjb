@@ -15,7 +15,7 @@
       </view>
       <view class="nav-actions">
         <view class="icon-btn menu-btn solo" bindtap="toggleTopMenu">
-          <image class="menu-entry-image" src="../../setting.png" mode="aspectFit" />
+          <image class="menu-entry-image" src="assets/setting.png" mode="aspectFit" />
         </view>
       </view>
     </view>
@@ -43,7 +43,9 @@
   <view class="card calendar-card">
     <view class="calendar-head">
       <view class="month-btn" bindtap="prevMonth"><view class="month-arrow left"></view></view>
-      <view class="month-title">{{monthTitle}}</view>
+      <picker mode="selector" range="{{calMonthOptions}}" range-key="label" value="{{calMonthIndex}}" bindchange="onCalMonthPick">
+        <view class="month-title">{{monthTitle}}</view>
+      </picker>
       <view class="month-btn" bindtap="nextMonth"><view class="month-arrow right"></view></view>
     </view>
     <view class="week-row">
@@ -53,7 +55,7 @@
       <block wx:for="{{monthDays}}" wx:key="key">
         <view wx:if="{{!item.empty}}" class="day-cell {{item.isToday ? 'today' : ''}} {{item.selected ? 'selected' : ''}}" data-date="{{item.dateStr}}" bindtap="onTapDay">
           <view class="day-number {{item.isWeekend ? 'weekend' : ''}}">{{item.day}}</view>
-          <view class="day-lunar">{{item.lunarText}}</view>
+          <view class="day-lunar {{item.holidayClass}}">{{item.lunarText}}</view>
           <view wx:if="{{item.dayRecords.length}}" class="day-badge {{item.tagClass}}">{{fmt.fmtDur(item.dayTotal, settingDurationFormat)}}</view>
           <view wx:if="{{item.notePreview}}" class="day-note">{{item.notePreview}}</view>
           <view wx:if="{{item.isToday && !item.dayRecords.length}}" class="today-dot"></view>
@@ -98,11 +100,13 @@
 
   <!-- ====== 统计视图 ====== -->
   <block wx:if="{{currentTab === 'stats'}}">
-  <view class="month-switch">
-    <view class="month-nav-btn" bindtap="prevStatsMonth"><view class="month-nav-arrow left"></view></view>
-    <view class="month-caption">{{monthLabel}}</view>
-    <view class="month-nav-btn" bindtap="nextStatsMonth"><view class="month-nav-arrow right"></view></view>
-  </view>
+  <picker class="month-picker" mode="selector" range="{{statsMonthOptions}}" range-key="label" value="{{statsMonthIndex}}" bindchange="onStatsMonthPick">
+    <view class="month-switch">
+      <view class="month-nav-btn" catchtap="prevStatsMonth"><view class="month-nav-arrow left"></view></view>
+      <view class="month-caption">{{monthLabel}}</view>
+      <view class="month-nav-btn" catchtap="nextStatsMonth"><view class="month-nav-arrow right"></view></view>
+    </view>
+  </picker>
 
   <view class="summary-row">
     <view class="summary-card strong blue">
@@ -397,7 +401,7 @@
               </view>
             </view>
             <view wx:else class="voice-add-btn {{isRecording ? 'recording' : ''}}" bindtap="toggleVoiceRecord">
-              <image class="voice-add-icon-img" src="/speech2.png" mode="aspectFit" />
+              <image class="voice-add-icon-img" src="assets/speech2.png" mode="aspectFit" />
               <view wx:if="{{isRecording}}" class="voice-recording-text">录制中</view>
               <view wx:else class="voice-add-text">录音</view>
             </view>

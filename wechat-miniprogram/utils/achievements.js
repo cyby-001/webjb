@@ -20,13 +20,13 @@ const ACHIEVEMENTS = [
   { id: 'overtime_7days', name: '七日无休', category: '连续加班', emoji: '📆', desc: '连续7个自然日加班', quote: '一周过去了，你还在加班' },
   { id: 'overtime_14days', name: '公司基础设施', category: '连续加班', emoji: '🏢', desc: '连续14个自然日加班', quote: '你已经成为公司基础设施的一部分，记得基础设施也需要维护保养' },
   { id: 'overtime_30days', name: '不要解锁这个', category: '连续加班', emoji: '😵', desc: '连续30个自然日加班', quote: '你真的解锁了，如果一直是这个状态，值得找个时间喘口气' },
-  { id: 'total_50h', name: '时间开始有重量', category: '累计加班', emoji: '⚖️', desc: '累计有效加班 ≥50小时', quote: '你已经花了不少私人时间在工作上' },
-  { id: 'total_100h', name: '一整天都不见了', category: '累计加班', emoji: '😶', desc: '累计有效加班 ≥100小时', quote: '这已经相当于12.5个8小时工作日' },
-  { id: 'total_500h', name: '时间黑洞', category: '累计加班', emoji: '🕳️', desc: '累计有效加班 ≥500小时', quote: '时间似乎掉进了某个黑洞，如果最近一直这样，记得留一点时间给自己' },
+  { id: 'total_50h', name: '时间开始有重量', category: '累计加班', emoji: '⚖️', desc: '近一年累计有效加班 ≥50小时', quote: '你已经花了不少私人时间在工作上' },
+  { id: 'total_100h', name: '一整天都不见了', category: '累计加班', emoji: '😶', desc: '近一年累计有效加班 ≥100小时', quote: '这已经相当于12.5个8小时工作日' },
+  { id: 'total_500h', name: '时间黑洞', category: '累计加班', emoji: '🕳️', desc: '近一年累计有效加班 ≥500小时', quote: '时间似乎掉进了某个黑洞，如果最近一直这样，记得留一点时间给自己' },
   { id: 'first_leave', name: '第一次请假', category: '请假经历', emoji: '🍃', desc: '第一次记录有效请假', quote: '工作暂停了一下' },
   { id: 'first_full_day_leave', name: '今天不上班', category: '请假经历', emoji: '🛌', desc: '第一次完整请假 ≥1天', quote: '今天的工作与你无关' },
-  { id: 'leave_3days', name: '人间蒸发', category: '请假经历', emoji: '💨', desc: '单次连续请假 ≥3天', quote: '连续几天从工作世界暂时消失' },
-  { id: 'leave_5days', name: '长假开始', category: '请假经历', emoji: '🎉', desc: '单次连续请假 ≥5天', quote: '这次是真的休息了一阵' },
+  { id: 'leave_3days', name: '人间蒸发', category: '请假经历', emoji: '💨', desc: '单次连续请假 ≥3天（可跨周末/节假日）', quote: '连续几天从工作世界暂时消失' },
+  { id: 'leave_5days', name: '长假开始', category: '请假经历', emoji: '🎉', desc: '单次连续请假 ≥5天（可跨周末/节假日）', quote: '这次是真的休息了一阵' },
   { id: 'leave_then_overtime', name: '假期结束综合征', category: '请假经历', emoji: '🔁', desc: '连续请假结束后第一个工作日加班', quote: '假期刚结束，工作已经开始反击' },
   { id: 'light_week', name: '这周还挺松', category: '平衡记录', emoji: '🍀', desc: '自然周内无任何加班记录', quote: '这周一次班都没加，难得的松弛感' },
   { id: 'no_overtime_month', name: '这个月挺清净', category: '平衡记录', emoji: '🍵', desc: '自然月内无任何加班记录', quote: '这个月完全没有加班记录，挺难得的' },
@@ -34,6 +34,8 @@ const ACHIEVEMENTS = [
   { id: 'comp_leave_used', name: '调休真的用上了', category: '平衡记录', emoji: '🎫', desc: '记录一次调休请假', quote: '欠你的调休，这次真的兑现了' },
   { id: 'early_finish_streak', name: '连续收得不晚', category: '平衡记录', emoji: '🎈', desc: '连续5天有加班记录且结束时间均 ≤20:00', quote: '最近几天虽然有加班，但收得都不算晚' }
 ];
+
+const { isRestDay } = require('./holidays');
 
 const OVERTIME_TYPE = '平日加班';
 const HOLIDAY_TYPE = '节假日加班';
@@ -150,7 +152,8 @@ function evaluateAchievements(records, opts) {
   add('overtime_30days', firstStreakCompletion(otDateList, 30));
 
   const totalThresholds = [[50, 'total_50h'], [100, 'total_100h'], [500, 'total_500h']];
-  const otByDateSorted = [...ot].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const totalWindowStart = fmtDate(addDays(today, -365));
+  const otByDateSorted = ot.filter((r) => r.date >= totalWindowStart).sort((a, b) => (a.date < b.date ? -1 : 1));
   let cum = 0;
   const totalHit = {};
   for (const r of otByDateSorted) {
@@ -168,21 +171,31 @@ function evaluateAchievements(records, opts) {
 
   const leaveRuns = [];
   {
+    // 两条请假记录之间的空档若全是休息日（周末或法定节假日，调休补班日不算）则允许跨过，len 只数实际请假日
+    const bridgeable = (fromStr, toStr) => {
+      let d = addDays(toDate(fromStr), 1);
+      const end = toDate(toStr);
+      while (d < end) {
+        if (!isRestDay(fmtDate(d))) return false;
+        d = addDays(d, 1);
+      }
+      return true;
+    };
     const sorted = [...new Set(leave.map((r) => r.date))].sort();
     let cur = null;
     sorted.forEach((dateStr) => {
-      if (cur && (toDate(dateStr) - toDate(cur.end)) === DAY_MS) {
+      if (cur && bridgeable(cur.end, dateStr)) {
         cur.end = dateStr;
-        cur.len += 1;
+        cur.days.push(dateStr);
       } else {
-        cur = { start: dateStr, end: dateStr, len: 1 };
+        cur = { start: dateStr, end: dateStr, days: [dateStr] };
         leaveRuns.push(cur);
       }
     });
   }
   const firstLeaveRunN = (n) => {
-    const run = leaveRuns.find((r) => r.len >= n);
-    return run ? fmtDate(addDays(toDate(run.start), n - 1)) : null;
+    const run = leaveRuns.find((r) => r.days.length >= n);
+    return run ? run.days[n - 1] : null;
   };
   add('leave_3days', firstLeaveRunN(3));
   add('leave_5days', firstLeaveRunN(5));

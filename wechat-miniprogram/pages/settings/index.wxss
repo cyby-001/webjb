@@ -324,7 +324,3 @@
   box-shadow: 0 0 0 3rpx #64748b;
 }
 
-.settings-save {
-  margin-top: 26rpx;
-}
-

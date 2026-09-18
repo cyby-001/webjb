@@ -278,6 +278,16 @@
   line-height: 1;
 }
 
+.day-lunar.holiday-off {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.day-lunar.holiday-work {
+  color: #64748b;
+  font-weight: 700;
+}
+
 .day-badge {
   margin-top: 10rpx;
   display: inline-flex;
@@ -938,28 +948,34 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18rpx;
-  margin: 18rpx 4rpx 16rpx;
+  gap: 22rpx;
+  margin: 16rpx 4rpx 18rpx;
+  padding: 10rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1rpx solid #e8edf5;
+  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.05);
 }
 
 .month-caption {
   flex: 1;
-  text-align: center;
-  color: #9aa8bc;
-  font-size: 28rpx;
-  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  color: #1f2937;
+  font-size: 30rpx;
+  font-weight: 800;
 }
 
 .month-nav-btn {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 18rpx;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1rpx solid #e8edf5;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 999rpx;
+  background: #f1f5fa;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.04);
+  flex-shrink: 0;
 }
 
 .month-nav-arrow {
@@ -1471,6 +1487,8 @@
 }
 
 .calc-shell {
+  /* 内部 head/body 已自带 20rpx 横向 padding，去掉 .panel 的叠加缩进 */
+  padding: 0;
   margin-bottom: 20rpx;
   overflow: hidden;
 }

@@ -2,7 +2,8 @@ const { RecordCategory, OvertimeType, LeaveType, DEFAULT_COLORS, PAY_RULES } = r
 const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate, loadUnlockedAchievements, saveUnlockedAchievements, loadCompactCardPreference, saveCompactCardPreference, loadCalcModePreference, saveCalcModePreference } = require('../../utils/storage');
 const { ACHIEVEMENTS, evaluateAchievements } = require('../../utils/achievements');
 const { payrollEstimate, cloneImages } = require('../../utils/records');
-const { formatDate, calcDuration, getPeriodKey, getMonthMeta, endForDuration } = require('../../utils/time');
+const { formatDate, calcDuration, getPeriodKey, getMonthMeta, endForDuration, buildStatsMonthOptions } = require('../../utils/time');
+const { entryFor } = require('../../utils/holidays');
 const { writeTempFile, handleGeneratedFile, exportRecordsToCSV, chooseAndReadJSON } = require('../../utils/files');
 const { sanitizeOneDecimalInput, parseOneDecimal } = require('../../utils/decimal');
 const { uploadFile, downloadCloudFile, resolveRecordMedia, deleteCloudFiles } = require('../../utils/cloud-files');
@@ -134,6 +135,7 @@ function buildMonthDays(currentDate, records, selectedDate, weekStart) {
     const leaveRecords = dayRecords.filter((item) => item.category === RecordCategory.LEAVE);
     const showLeave = !otRecords.length && leaveRecords.length;
     const shown = showLeave ? leaveRecords : otRecords;
+    const holiday = entryFor(dateStr);
     days.push({
       empty: false,
       key: dateStr,
@@ -142,7 +144,8 @@ function buildMonthDays(currentDate, records, selectedDate, weekStart) {
       selected: selectedDate === dateStr,
       isWeekend: date.getDay() === 0 || date.getDay() === 6,
       isToday: formatDate(new Date()) === dateStr,
-      lunarText: getPseudoLunarText(day),
+      lunarText: holiday ? (holiday.off ? '休' : '班') : getPseudoLunarText(day),
+      holidayClass: holiday ? (holiday.off ? 'holiday-off' : 'holiday-work') : '',
       dayRecords,
       dayTotal: Number(shown.reduce((sum, r) => sum + Number(r.duration || 0), 0).toFixed(1)),
       notePreview: buildNotePreview(dayRecords[0] && dayRecords[0].note),
@@ -398,6 +401,8 @@ Page({
     weekStart: 'sunday',
     currentMonthCursor: monthCursorFromDate(new Date()),
     monthTitle: '',
+    calMonthOptions: [],
+    calMonthIndex: 0,
     monthDays: [],
     lunarInfo: '',
     settings: {},
@@ -433,6 +438,8 @@ Page({
 
     /* --- stats view --- */
     monthLabel: '',
+    statsMonthOptions: [],
+    statsMonthIndex: 0,
     currentYearLabel: '',
     selectedMonthCursor: monthCursorFromDate(new Date()),
     rangeOptions: RANGE_OPTIONS,
@@ -698,8 +705,16 @@ ensureDonutCanvas(retries = 5) {
     const monthDays = buildMonthDays(currentDate, this.data.records, selectedDate, this.data.weekStart);
     const lunarInfo = targetDay ? `农历 ${targetDay.lunarText}` : '';
     const selectedDayState = buildSelectedDayState(selectedDate, this.data.records);
+    const calMonthOptions = buildStatsMonthOptions(this.data.records);
+    const calMonthIndex = Math.max(0, calMonthOptions.findIndex((o) => o.cursor === currentMonthCursor));
     wx.setStorageSync(SELECTED_MONTH_CURSOR_KEY, currentMonthCursor);
-    this.setData({ currentMonthCursor, monthTitle, monthDays, lunarInfo, ...selectedDayState });
+    this.setData({ currentMonthCursor, monthTitle, monthDays, lunarInfo, calMonthOptions, calMonthIndex, ...selectedDayState });
+  },
+
+  onCalMonthPick(e) {
+    const opt = this.data.calMonthOptions[Number(e.detail.value)];
+    if (!opt || opt.cursor === this.data.currentMonthCursor) return;
+    this.refreshCalendar(new Date(Number(opt.cursor.slice(0, 4)), Number(opt.cursor.slice(5, 7)) - 1, 1));
   },
 
   prevMonth() {
@@ -1381,9 +1396,12 @@ ensureDonutCanvas(retries = 5) {
     const savedCalcMode = loadCalcModePreference();
 
     const settingsData = normalizeSettingsState(settings);
+    const statsMonthOptions = buildStatsMonthOptions(records);
 
     this.setData({
       ...settingsData,
+      statsMonthOptions,
+      statsMonthIndex: Math.max(0, statsMonthOptions.findIndex((o) => o.cursor === selectedMonthCursor)),
       records,
       settings,
       hourlyRate,
@@ -1438,9 +1456,7 @@ ensureDonutCanvas(retries = 5) {
     this.setData({ detailFilter: filter }, () => this.reloadStats());
   },
 
-  switchStatsMonth(offset) {
-    const current = dateFromMonthCursor(this.data.selectedMonthCursor || monthCursorFromDate(new Date()));
-    const targetDate = new Date(current.getFullYear(), current.getMonth() + offset, 1);
+  gotoStatsMonth(targetDate) {
     const selectedMonthCursor = monthCursorFromDate(targetDate);
     const startDay = this.data.settingPeriodStartDay || 1;
     const { calcStart, calcEnd } = calcPeriodRange(targetDate, startDay);
@@ -1456,12 +1472,23 @@ ensureDonutCanvas(retries = 5) {
     }, () => this.reloadStats());
   },
 
+  switchStatsMonth(offset) {
+    const current = dateFromMonthCursor(this.data.selectedMonthCursor || monthCursorFromDate(new Date()));
+    this.gotoStatsMonth(new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  },
+
   prevStatsMonth() {
     this.switchStatsMonth(-1);
   },
 
   nextStatsMonth() {
     this.switchStatsMonth(1);
+  },
+
+  onStatsMonthPick(e) {
+    const opt = this.data.statsMonthOptions[Number(e.detail.value)];
+    if (!opt || opt.cursor === this.data.selectedMonthCursor) return;
+    this.gotoStatsMonth(new Date(Number(opt.cursor.slice(0, 4)), Number(opt.cursor.slice(5, 7)) - 1, 1));
   },
 
   onRateInput(e) {

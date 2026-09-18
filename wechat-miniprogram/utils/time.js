@@ -78,10 +78,32 @@ function getPeriodKey(dateStr, startDay) {
   return (dateStr || '').slice(0, 7);
 }
 
+// 月份选择器选项：最早记录月 ~ 当前月，格式 { label, cursor: 'YYYY-MM' }（todayStr 仅测试注入用）
+function buildStatsMonthOptions(records, todayStr) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const now = todayStr ? new Date(`${todayStr.replace(/-/g, '/')} 00:00:00`) : new Date();
+  const maxKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  let minKey = maxKey;
+  (records || []).forEach((r) => {
+    const key = (r.date || '').slice(0, 7);
+    if (key && key < minKey) minKey = key;
+  });
+  const options = [];
+  let y = Number(minKey.slice(0, 4));
+  let m = Number(minKey.slice(5, 7));
+  while (`${y}-${pad(m)}` <= maxKey) {
+    options.push({ label: `${y}年${m}月`, cursor: `${y}-${pad(m)}` });
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return options;
+}
+
 module.exports = {
   formatDate,
   calcDuration,
   getPeriodKey,
   getMonthMeta,
-  endForDuration
+  endForDuration,
+  buildStatsMonthOptions
 };

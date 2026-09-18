@@ -51,8 +51,7 @@ const DEFAULT_SETTINGS = {
   calcAllTime: false,
   payRule: DEFAULT_PAY_RULE,
   restPeriods: [
-    { id: '1', start: '12:00', end: '13:00', label: '午休' },
-    { id: '2', start: '17:00', end: '18:00', label: '晚饭' }
+    { id: '1', start: '12:00', end: '13:00', label: '午休' }
   ]
 };
 

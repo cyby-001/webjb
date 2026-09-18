@@ -25,6 +25,18 @@
       {
         "type": "folder",
         "value": "tests"
+      },
+      {
+        "type": "folder",
+        "value": "scripts"
+      },
+      {
+        "type": "folder",
+        "value": "minitest"
+      },
+      {
+        "type": "folder",
+        "value": ".claude"
       }
     ],
     "include": []
