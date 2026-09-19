@@ -47,6 +47,7 @@
       <view class="settings-label">日历页加班概览条</view>
       <switch checked="{{settingPayBar}}" color="#4f7af5" bindchange="onPayBarChange" />
     </view>
+    <view class="settings-sub">在日历顶部显示本周期加班与估算摘要</view>
   </view>
 
   <view class="info-card">
@@ -111,6 +112,14 @@
       <switch checked="{{settingCloudSync}}" color="#4f7af5" bindchange="onCloudSyncChange" />
     </view>
     <view class="settings-sub">关闭后记录仅保存在本机，不再上传到云端</view>
+  </view>
+
+  <view class="info-card">
+    <view class="settings-row-top">
+      <view class="settings-label no-margin">打卡记录模式</view>
+      <switch checked="{{settingClockIn}}" color="#4f7af5" bindchange="onClockInChange" />
+    </view>
+    <view class="settings-sub">点"记录"直接记一条加班，结束时间按半小时取整</view>
   </view>
 
   <view class="info-card">

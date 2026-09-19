@@ -1,4 +1,32 @@
 const { RecordCategory, OvertimeType } = require('./constants');
+const { calcDuration } = require('./time');
+const { entryFor } = require('./holidays');
+
+// 打卡模式：由当前时刻生成加班记录要素，结束时间半小时向下取整。
+// 平日起点 otDefaultStart，周末/节假日起点 leaveDefaultStart（与编辑层默认一致），
+// 取整后不晚于起点返回 null
+function buildClockRecord(dateStr, nowText, settings) {
+  const s = settings || {};
+  const day = new Date(`${dateStr.replace(/-/g, '/')} 00:00:00`).getDay();
+  const entry = entryFor(dateStr);
+  const isRest = (entry && entry.off) || day === 0 || day === 6;
+  const startTime = isRest ? (s.leaveDefaultStart || '08:00') : (s.otDefaultStart || '18:00');
+  const parts = (nowText || '').split(':').map(Number);
+  if (!Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) return null;
+  const total = Math.floor((parts[0] * 60 + parts[1]) / 30) * 30;
+  const endTime = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  if (endTime <= startTime) return null;
+  const duration = calcDuration(startTime, endTime, s.restPeriods);
+  if (duration <= 0) return null;
+  return {
+    date: dateStr,
+    category: RecordCategory.OVERTIME,
+    type: entry && entry.off ? OvertimeType.HOLIDAY : (day === 0 || day === 6 ? OvertimeType.WEEKEND : OvertimeType.WEEKDAY),
+    startTime,
+    endTime,
+    duration: Number(duration.toFixed(2))
+  };
+}
 
 function cloneImages(images) {
   if (!Array.isArray(images)) return [];
@@ -140,4 +168,4 @@ function payrollEstimate(records, startDate, endDate, hourlyRate, rule) {
   };
 }
 
-module.exports = { payrollEstimate, cloneImages, clonePeriods };
+module.exports = { payrollEstimate, cloneImages, clonePeriods, buildClockRecord };

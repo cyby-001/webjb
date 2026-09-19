@@ -32,7 +32,9 @@ const ACHIEVEMENTS = [
   { id: 'no_overtime_month', name: '这个月挺清净', category: '平衡记录', emoji: '🍵', desc: '自然月内无任何加班记录', quote: '这个月完全没有加班记录，挺难得的' },
   { id: 'weekend_intact_month', name: '周末完整保留', category: '平衡记录', emoji: '🧩', desc: '自然月内所有周六日均无加班记录', quote: '这个月的周末，一次都没被工作占用' },
   { id: 'comp_leave_used', name: '调休真的用上了', category: '平衡记录', emoji: '🎫', desc: '记录一次调休请假', quote: '欠你的调休，这次真的兑现了' },
-  { id: 'early_finish_streak', name: '连续收得不晚', category: '平衡记录', emoji: '🎈', desc: '连续5天有加班记录且结束时间均 ≤20:00', quote: '最近几天虽然有加班，但收得都不算晚' }
+  { id: 'early_finish_streak', name: '连续收得不晚', category: '平衡记录', emoji: '🎈', desc: '连续5天有加班记录且结束时间均 ≤20:00', quote: '最近几天虽然有加班，但收得都不算晚' },
+  { id: 'weekend_guard_6m', name: '周末守护者', category: '平衡记录', emoji: '🛡️', desc: '连续6个自然月周末零加班', quote: '整整半年，周末都还属于你' },
+  { id: 'record_3_months', name: '坚持记录', category: '习惯', emoji: '📒', desc: '连续3个自然月每月都有记录', quote: '记录本身，就是自我管理的第一步' }
 ];
 
 const { isRestDay } = require('./holidays');
@@ -199,8 +201,14 @@ function evaluateAchievements(records, opts) {
   };
   add('leave_3days', firstLeaveRunN(3));
   add('leave_5days', firstLeaveRunN(5));
-  const thenOt = leaveRuns.find((r) => otByDate.has(fmtDate(addDays(toDate(r.end), 1))));
-  add('leave_then_overtime', thenOt ? fmtDate(addDays(toDate(thenOt.end), 1)) : null);
+  // 请假结束后的第一个工作日（跳过周末与法定节假日）
+  const nextWorkday = (fromStr) => {
+    let d = addDays(toDate(fromStr), 1);
+    while (isRestDay(fmtDate(d))) d = addDays(d, 1);
+    return fmtDate(d);
+  };
+  const thenOt = leaveRuns.find((r) => otByDate.has(nextWorkday(r.end)));
+  add('leave_then_overtime', thenOt ? nextWorkday(thenOt.end) : null);
 
   /* --- 平衡记录 --- */
   const earlyDates = [];
@@ -229,16 +237,41 @@ function evaluateAchievements(records, opts) {
     weekStart = addDays(weekStart, 7);
   }
 
-  // no_overtime_month / weekend_intact_month：首次记录月份之后的完整自然月，达成日为月末
+  // no_overtime_month / weekend_intact_month / weekend_guard_6m：首次记录月份之后的完整自然月；
+  // 当月需有任意记录才参与结算，防止"停用 app 即达成"的注水
+  const monthHasRecord = new Set(all.map((r) => r.date.slice(0, 7)));
+  let guardRun = 0;
   let monthCursor = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 1);
   while (new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0) < today) {
     const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
     const monthPrefix = `${monthCursor.getFullYear()}-${pad(monthCursor.getMonth() + 1)}`;
     const monthOt = ot.filter((r) => r.date.slice(0, 7) === monthPrefix);
-    if (monthOt.length === 0) add('no_overtime_month', fmtDate(monthEnd));
-    if (monthOt.every((r) => !isWeekendDate(r.date))) add('weekend_intact_month', fmtDate(monthEnd));
+    const hasRecord = monthHasRecord.has(monthPrefix);
+    const weekendOt = monthOt.some((r) => isWeekendDate(r.date));
+    if (hasRecord && monthOt.length === 0) add('no_overtime_month', fmtDate(monthEnd));
+    if (hasRecord && !weekendOt) {
+      add('weekend_intact_month', fmtDate(monthEnd));
+      guardRun += 1;
+    } else {
+      guardRun = 0;
+    }
     monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1);
-    if (results.some((x) => x.id === 'no_overtime_month') && results.some((x) => x.id === 'weekend_intact_month')) break;
+    if (guardRun >= 6) { add('weekend_guard_6m', fmtDate(addDays(monthCursor, -1))); break; }
+  }
+
+  // record_3_months：连续 3 个自然月每月至少 1 条记录，达成日为第 3 个月的首条记录日
+  const monthFirstDate = {};
+  all.forEach((r) => {
+    const p = r.date.slice(0, 7);
+    if (!monthFirstDate[p] || r.date < monthFirstDate[p]) monthFirstDate[p] = r.date;
+  });
+  const monthKeys = Object.keys(monthFirstDate).sort();
+  let recordRun = 1;
+  for (let i = 1; i < monthKeys.length; i += 1) {
+    const prev = Number(monthKeys[i - 1].slice(0, 4)) * 12 + Number(monthKeys[i - 1].slice(5, 7));
+    const cur = Number(monthKeys[i].slice(0, 4)) * 12 + Number(monthKeys[i].slice(5, 7));
+    recordRun = cur - prev === 1 ? recordRun + 1 : 1;
+    if (recordRun >= 3) { add('record_3_months', monthFirstDate[monthKeys[i]]); break; }
   }
 
   return results;

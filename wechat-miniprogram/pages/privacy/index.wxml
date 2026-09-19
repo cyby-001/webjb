@@ -1,27 +1,43 @@
 <view class="info-page privacy-page">
   <view class="hero-card">
     <view class="hero-title">隐私说明</view>
-    <view class="hero-sub">这是一款个人工时管理小程序，数据保存于微信云开发，仅限你的微信账号访问。</view>
+    <view class="hero-sub">个人工时管理工具，数据只属于你。三分钟读完。</view>
   </view>
 
   <view class="info-card">
-    <view class="section-title">数据保存</view>
+    <view class="section-title">你的数据去哪了</view>
     <view class="info-item">
-      <view class="item-title">本地缓存</view>
-      <view class="item-desc">记录数据同时缓存于设备本地，离线也能查看。</view>
+      <view class="item-title">本地优先</view>
+      <view class="item-desc">记录先存在你的手机上，不联网也能完整使用。</view>
     </view>
     <view class="info-item">
-      <view class="item-title">云端同步</view>
-      <view class="item-desc">加班记录、图片和语音通过微信云开发自动同步，使用当前微信号身份，方便换机恢复。</view>
+      <view class="item-title">云端同步（默认开启）</view>
+      <view class="item-desc">记录与图片、语音经微信云开发同步，仅你的微信号可读，用于换机恢复；可在设置中随时关闭，关闭后仅保存在本机。</view>
     </view>
     <view class="info-item">
-      <view class="item-title">文件导入导出</view>
-      <view class="item-desc">仅当你主动执行 JSON 备份或 CSV 导出时才会生成文件，导入导出不包含图片和语音文件。</view>
+      <view class="item-title">导入导出</view>
+      <view class="item-desc">只有你主动操作时才生成或读取文件；JSON 备份不含图片与语音。</view>
     </view>
   </view>
 
   <view class="info-card">
-    <view class="section-title">使用说明</view>
-    <view class="plain-text">本工具不会主动对外分享你的记录内容。请妥善保管导出的备份文件，在公共设备上谨慎使用导入导出功能。</view>
+    <view class="section-title">权限用途</view>
+    <view class="info-item">
+      <view class="item-title">摄像头 / 相册</view>
+      <view class="item-desc">仅用于给加班记录配图并添加时间水印。</view>
+    </view>
+    <view class="info-item">
+      <view class="item-title">麦克风</view>
+      <view class="item-desc">仅用于录制语音备注。</view>
+    </view>
+    <view class="info-item">
+      <view class="item-title">不收集的信息</view>
+      <view class="item-desc">无广告、无第三方共享，除上述内容外不收集任何个人信息。</view>
+    </view>
+  </view>
+
+  <view class="info-card">
+    <view class="section-title">提醒</view>
+    <view class="plain-text">导出的备份文件由你自行保管；在公共设备上使用导入功能后，记得删除文件。</view>
   </view>
 </view>

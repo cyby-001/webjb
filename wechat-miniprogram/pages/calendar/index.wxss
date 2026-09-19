@@ -1427,15 +1427,40 @@
   gap: 12rpx;
 }
 
-.detail-sub {
-  color: #b0bccf;
-  font-size: 21rpx;
-  font-weight: 500;
-}
-
 .detail-filters {
   display: flex;
   gap: 8rpx;
+}
+
+.detail-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin: 4rpx 0 14rpx;
+}
+
+.detail-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 60rpx;
+  padding: 0 20rpx;
+  border-radius: 999rpx;
+  background: #f1f5fa;
+  color: #334155;
+  font-size: 24rpx;
+}
+
+.detail-search-clear {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 999rpx;
+  background: #f1f5fa;
+  color: #8a97ab;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .detail-scroll {
@@ -1458,7 +1483,10 @@
 }
 
 .detail-date {
-  width: 76rpx;
+  min-width: 76rpx;
+  flex-shrink: 0;
+  padding: 0 6rpx;
+  white-space: nowrap;
   color: #475569;
   font-size: 26rpx;
   font-weight: 800;
@@ -1512,6 +1540,19 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.detail-line.note-open {
+  flex-wrap: wrap;
+}
+
+.detail-line.note-open .detail-note {
+  flex-basis: 100%;
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  color: #64748b;
 }
 
 .empty-text {

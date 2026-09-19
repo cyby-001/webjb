@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { ACHIEVEMENTS, evaluateAchievements } = require('../utils/achievements');
 
-assert.strictEqual(ACHIEVEMENTS.length, 32, '32 个成就');
+assert.strictEqual(ACHIEVEMENTS.length, 34, '34 个成就');
 
 const TODAY = '2026-03-10';
 const ot = (date, type, start, end, duration) => ({ id: date + type + start, date, category: '加班', type, startTime: start, endTime: end, duration });
@@ -86,6 +86,9 @@ assert.strictEqual(r.first_full_day_leave, '2026-03-06');
 r = eval_([lv('2026-03-02', '年假'), lv('2026-03-03', '年假'), lv('2026-03-04', '年假'), ot('2026-03-05', '平日加班', '18:00', '20:00', 2)]);
 assert.strictEqual(r.leave_3days, '2026-03-04');
 assert.strictEqual(r.leave_then_overtime, '2026-03-05');
+// 周五请假结束 → 看下个工作日（周一），不再要求周六加班
+r = eval_([lv('2026-03-05', '年假'), lv('2026-03-06', '年假'), ot('2026-03-09', '平日加班', '18:00', '21:00', 3)]);
+assert.strictEqual(r.leave_then_overtime, '2026-03-09');
 r = eval_([lv('2026-03-06', '调休', 4)]);
 assert.strictEqual(r.comp_leave_used, '2026-03-06');
 assert.ok(!eval_([lv('2026-03-06', '调休', 4)]).first_full_day_leave, '4h 调休不算完整请假');
@@ -128,5 +131,28 @@ assert.ok(!r.no_overtime_month);
 // 新装用户当月不结算
 r = eval_([ot('2026-03-01', '平日加班', '18:00', '20:00', 2)]);
 assert.ok(!r.light_week && !r.no_overtime_month && !r.weekend_intact_month);
+
+// 月度平衡成就需当月有记录（防"停用即达成"注水）：1月有记录、2月整月无记录 → 2月不解锁
+r = eval_([ot('2026-01-20', '平日加班', '18:00', '20:00', 2)]);
+assert.ok(!r.no_overtime_month && !r.weekend_intact_month, '无记录月不算清净');
+
+// 坚持记录：连续 3 个自然月每月 ≥1 条记录 → 达成日为第 3 个月首条记录日
+r = eval_([ot('2025-12-05', '平日加班', '18:00', '20:00', 2), ot('2026-01-05', '平日加班', '18:00', '20:00', 2), lv('2026-02-10', '事假')]);
+assert.strictEqual(r.record_3_months, '2026-02-10');
+r = eval_([ot('2025-11-20', '平日加班', '18:00', '20:00', 2), ot('2025-12-05', '平日加班', '18:00', '20:00', 2), lv('2026-02-10', '事假')]);
+assert.ok(!r.record_3_months, '2026-01 断档不达成');
+
+// 周末守护者：首月之后连续 6 个完整月有记录且周末零加班 → 达成日为第 6 个月月末
+r = eval_(
+  ['2025-08-12', '2025-09-10', '2025-10-15', '2025-11-12', '2025-12-09', '2026-01-13', '2026-02-11']
+    .map((d) => ot(d, '平日加班', '18:00', '20:00', 2))
+);
+assert.strictEqual(r.weekend_guard_6m, '2026-02-28');
+r = eval_(
+  ['2025-08-12', '2025-09-10', '2025-11-12', '2025-12-09', '2026-01-13', '2026-02-11']
+    .map((d) => ot(d, '平日加班', '18:00', '20:00', 2))
+    .concat([ot('2025-11-08', '周末加班', '10:00', '12:00', 2)])
+);
+assert.ok(!r.weekend_guard_6m, '11月出现周末加班则中断连段');
 
 console.log('achievements tests passed');

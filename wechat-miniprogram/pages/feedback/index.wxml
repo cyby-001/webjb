@@ -1,30 +1,25 @@
 <view class="info-page feedback-page">
   <view class="hero-card">
     <view class="hero-title">意见反馈</view>
-    <view class="hero-sub">反馈使用中遇到的问题，或告诉我们你希望新增的功能。</view>
+    <view class="hero-sub">遇到问题或想要新功能，复制模板填好后发给开发者即可。</view>
   </view>
 
   <view class="info-card">
     <view class="section-title">问题反馈</view>
-    <view class="card-desc">适用于报错、页面异常、显示问题、数据不准确、交互不顺手等情况。</view>
-    <view class="tip-item">1. 尽量写清出问题的页面和操作步骤</view>
-    <view class="tip-item">2. 建议附上设备型号、微信版本和截图</view>
-    <view class="tip-item">3. 如涉及数据，建议先导出备份</view>
+    <view class="tip-item">写清页面和复现步骤，附设备型号与截图更好</view>
+    <view class="tip-item">涉及数据问题，请先导出备份</view>
     <view class="copy-btn" bindtap="copyIssueTemplate">复制问题反馈模板</view>
   </view>
 
   <view class="info-card feature-card">
     <view class="section-title">功能建议</view>
-    <view class="card-desc">如果你希望新增某个功能，在这里说明，我们能更准确理解你的需求。</view>
+    <view class="tip-item">说明想要什么功能、用在什么场景</view>
     <view class="feature-tags">
       <view class="feature-tag">记录效率</view>
       <view class="feature-tag">统计分析</view>
       <view class="feature-tag">同步备份</view>
       <view class="feature-tag">提醒通知</view>
     </view>
-    <view class="tip-item">1. 说明你希望新增什么功能</view>
-    <view class="tip-item">2. 说明你会用在什么场景</view>
-    <view class="tip-item">3. 如有理想的操作方式，也可以一起写上</view>
     <view class="copy-btn alt" bindtap="copyFeatureTemplate">复制功能建议模板</view>
   </view>
 </view>

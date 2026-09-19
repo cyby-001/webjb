@@ -50,6 +50,7 @@ const DEFAULT_SETTINGS = {
   cheerEnabled: true,
   calcAllTime: false,
   payBarEnabled: true,
+  clockInMode: false,
   payRule: DEFAULT_PAY_RULE,
   restPeriods: [
     { id: '1', start: '12:00', end: '13:00', label: '午休' }

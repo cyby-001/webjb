@@ -1,6 +1,33 @@
 const assert = require('assert');
-const { payrollEstimate } = require('../utils/records');
+const { payrollEstimate, buildClockRecord } = require('../utils/records');
 const { RecordCategory, OvertimeType } = require('../utils/constants');
+
+// 打卡模式记录要素
+(function clockRecordBasics() {
+  const settings = { otDefaultStart: '18:00', leaveDefaultStart: '08:00', restPeriods: [{ start: '12:00', end: '13:00' }] };
+  // 2026-09-18 周五 20:30 下班 → 平日 18:00~20:30 = 2.5h
+  let r = buildClockRecord('2026-09-18', '20:30', settings);
+  assert.strictEqual(r.type, OvertimeType.WEEKDAY);
+  assert.strictEqual(r.startTime, '18:00');
+  assert.strictEqual(r.duration, 2.5);
+  // 2026-09-19 周六 12:30 → 周末，起点用全天班 08:00，扣午休 0.5h = 4h
+  r = buildClockRecord('2026-09-19', '12:30', settings);
+  assert.strictEqual(r.type, OvertimeType.WEEKEND);
+  assert.strictEqual(r.startTime, '08:00');
+  assert.strictEqual(r.duration, 4);
+  // 2026-10-01 国庆节 → 节假日类型
+  assert.strictEqual(buildClockRecord('2026-10-01', '12:30', settings).type, OvertimeType.HOLIDAY);
+  // 未到默认开始时间 → null（周五 17:59）
+  assert.strictEqual(buildClockRecord('2026-09-18', '17:59', settings), null);
+  // 半小时向下取整：20:39 → 记到 20:30
+  r = buildClockRecord('2026-09-18', '20:39', settings);
+  assert.strictEqual(r.endTime, '20:30');
+  assert.strictEqual(r.duration, 2.5);
+  // 20:20 → 记到 20:00
+  assert.strictEqual(buildClockRecord('2026-09-18', '20:20', settings).endTime, '20:00');
+  // 取整后不足一个起点间隔 → null（周六 08:20 → 08:00 = 起点本身）
+  assert.strictEqual(buildClockRecord('2026-09-19', '08:20', settings), null);
+})();
 
 function record(category, type, duration, date = '2026-04-01') {
   return { category, type, duration, date };

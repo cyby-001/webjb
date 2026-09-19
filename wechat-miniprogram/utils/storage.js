@@ -69,6 +69,7 @@ function buildSettings(source) {
     cheerEnabled: settings.cheerEnabled !== false,
     calcAllTime: settings.calcAllTime === true,
     payBarEnabled: settings.payBarEnabled !== false,
+    clockInMode: settings.clockInMode === true,
     payRule: normalizePayRule(settings.payRule),
     restPeriods: Array.isArray(settings.restPeriods)
       ? clonePeriods(settings.restPeriods)

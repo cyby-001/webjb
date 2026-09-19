@@ -1,7 +1,7 @@
 const { RecordCategory, OvertimeType, LeaveType, DEFAULT_COLORS, PAY_RULES } = require('../../utils/constants');
 const { syncUserData, loadRecords, saveRecords, loadSettings, saveSettings, loadHourlyRate, saveHourlyRate, loadUnlockedAchievements, saveUnlockedAchievements, loadCompactCardPreference, saveCompactCardPreference, loadCalcModePreference, saveCalcModePreference } = require('../../utils/storage');
 const { ACHIEVEMENTS, evaluateAchievements } = require('../../utils/achievements');
-const { payrollEstimate, cloneImages } = require('../../utils/records');
+const { payrollEstimate, cloneImages, buildClockRecord } = require('../../utils/records');
 const { formatDate, calcDuration, getPeriodKey, getMonthMeta, endForDuration, buildStatsMonthOptions } = require('../../utils/time');
 const { entryFor } = require('../../utils/holidays');
 const { writeTempFile, handleGeneratedFile, exportRecordsToCSV, chooseAndReadJSON } = require('../../utils/files');
@@ -290,11 +290,22 @@ function getRangeStartDate(rangeKey, anchorDate) {
   return new Date(anchorDate.getFullYear(), anchorDate.getMonth() - 5, 1);
 }
 
-function buildDetailRecords(records, rangeKey, filter, anchorDate) {
+function buildDetailRecords(records, rangeKey, filter, anchorDate, query) {
+  const q = (query || '').trim();
   const startDate = formatDate(getRangeStartDate(rangeKey, anchorDate));
   const endDate = formatDate(endOfMonth(anchorDate));
-  return records
-    .filter((item) => item.date >= startDate && item.date <= endDate)
+  // 搜索态：跨全部记录匹配日期/备注/类型；普通态：限定所选范围
+  const qd = q.replace(/[^\d]/g, '');
+  const source = q
+    ? records.filter((item) => (
+      (item.date || '').indexOf(q) >= 0
+      || (qd && (item.date || '').replace(/-/g, '').indexOf(qd) >= 0)
+      || (item.note || '').indexOf(q) >= 0
+      || (item.type || '').indexOf(q) >= 0
+      || (item.category || '').indexOf(q) >= 0
+    ))
+    : records.filter((item) => item.date >= startDate && item.date <= endDate);
+  return source
     .filter((item) => {
       if (filter === 'ot') return item.category !== RecordCategory.LEAVE;
       if (filter === 'leave') return item.category === RecordCategory.LEAVE;
@@ -311,7 +322,7 @@ function buildDetailRecords(records, rangeKey, filter, anchorDate) {
       type: item.type,
       duration: item.duration,
       note: item.note,
-      shortDate: item.date.slice(5).replace('-', '/'),
+      shortDate: q ? item.date.replace(/-/g, '/') : item.date.slice(5).replace('-', '/'),
       badgeClass: recordTagClass(item),
       badgeText: item.category === RecordCategory.LEAVE
         ? '请假'
@@ -449,6 +460,8 @@ Page({
     rangeOptions: RANGE_OPTIONS,
     activeRange: '6m',
     detailFilter: 'all',
+    detailQuery: '',
+    expandedNotes: {},
     chartHint: '',
     trendCursor: -1,
     monthSummary: { otHours: 0, leaveHours: 0, otCount: 0, leaveCount: 0 },
@@ -1409,7 +1422,7 @@ ensureDonutCanvas(retries = 5) {
       ? `${maxTrend.label} ${maxTrend.otHours}h` : '';
     const avgMonthlyOt = trend.length
       ? Number((trend.reduce((sum, item) => sum + Number(item.otHours || 0), 0) / trend.length).toFixed(1)) : 0;
-    const detailRecords = buildDetailRecords(records, this.data.activeRange, this.data.detailFilter, targetDate);
+    const detailRecords = buildDetailRecords(records, this.data.activeRange, this.data.detailFilter, targetDate, this.data.detailQuery);
     const chartHint = trendBars.length
       ? `${trendBars[trendBars.length - 1].shortLabel}月：加班 ${trendBars[trendBars.length - 1].otHours}h / 请假 ${trendBars[trendBars.length - 1].leaveHours}h` : '';
     // 全时段开关：按全部记录的最早~最晚日期统计，不随月份切换变化
@@ -1489,6 +1502,20 @@ ensureDonutCanvas(retries = 5) {
     const filter = e.currentTarget.dataset.filter;
     if (!filter || filter === this.data.detailFilter) return;
     this.setData({ detailFilter: filter }, () => this.reloadStats());
+  },
+
+  onDetailSearch(e) {
+    this.setData({ detailQuery: (e.detail.value || '').trim() }, () => this.reloadStats());
+  },
+
+  onToggleNote(e) {
+    const id = String(e.currentTarget.dataset.id);
+    this.setData({ [`expandedNotes.${id}`]: !this.data.expandedNotes[id] });
+  },
+
+  clearDetailSearch() {
+    if (!this.data.detailQuery) return;
+    this.setData({ detailQuery: '' }, () => this.reloadStats());
   },
 
   gotoStatsMonth(targetDate) {
@@ -2001,8 +2028,32 @@ ensureDonutCanvas(retries = 5) {
   /* ========== quick add ========== */
 
   quickAdd() {
+    if (loadSettings().clockInMode) {
+      this.autoClockRecord();
+      return;
+    }
     const dateStr = this.data.selectedDate || formatDate(new Date());
     this.openEditorForDate(dateStr, null);
+  },
+
+  autoClockRecord() {
+    const settings = loadSettings();
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const base = buildClockRecord(formatDate(now), `${pad(now.getHours())}:${pad(now.getMinutes())}`, settings);
+    if (!base) {
+      wx.showToast({ title: '未到默认开始时间或不足半小时', icon: 'none' });
+      return;
+    }
+    const record = Object.assign({ id: String(Date.now()), note: '', images: [], voiceId: '', voiceDuration: 0 }, base);
+    const records = this.data.records.concat([record]).sort((a, b) => (a.date < b.date ? 1 : -1));
+    saveRecords(records);
+    this.setData({ records }, () => {
+      this.refreshCalendar(dateFromMonthCursor(this.data.currentMonthCursor));
+      const newItems = this.refreshAchievements(records, false);
+      if (newItems.length) this.showAchievementCard(newItems[0]);
+      else this.showCheer(record);
+    });
   },
 
   /* ========== share ========== */

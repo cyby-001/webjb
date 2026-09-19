@@ -10,7 +10,7 @@ assert.ok(pickCheer({ startTime: '09:00', endTime: '14:00', duration: 5 }, { isH
 
 // 去重：传入 lastText 后不再抽到同一句
 const record = { startTime: '18:00', endTime: '20:00', duration: 2 };
-const lastText = '又肝了一天，钱包正在变厚的路上'; // normal 池中的一句
+const lastText = '今天的班，没有白加'; // normal 池中的一句
 for (let i = 0; i < 40; i += 1) {
   const c = pickCheer(record, { lastText });
   assert.notStrictEqual(c.text, lastText);

@@ -287,28 +287,32 @@
 
   <view class="card panel">
     <view class="panel-top detail-top">
-      <view class="panel-title">记录明细 <text class="detail-sub">（按所选时间范围）</text></view>
+      <view class="panel-title">记录明细</view>
       <view class="detail-filters">
         <view class="filter-pill {{detailFilter === 'all' ? 'active' : ''}}" data-filter="all" bindtap="setDetailFilter">全部</view>
         <view class="filter-pill {{detailFilter === 'ot' ? 'active' : ''}}" data-filter="ot" bindtap="setDetailFilter">加班</view>
         <view class="filter-pill {{detailFilter === 'leave' ? 'active' : ''}}" data-filter="leave" bindtap="setDetailFilter">请假</view>
       </view>
     </view>
+    <view class="detail-search-row">
+      <input class="detail-search-input" value="{{detailQuery}}" placeholder="搜索日期 / 备注 / 类型，回车搜索" confirm-type="search" bindconfirm="onDetailSearch" />
+      <view wx:if="{{detailQuery}}" class="detail-search-clear" bindtap="clearDetailSearch">✕</view>
+    </view>
     <scroll-view wx:if="{{detailRecords.length}}" class="detail-scroll" scroll-y="true" enhanced="true" show-scrollbar="false">
       <view class="detail-list">
         <view class="detail-item" wx:for="{{detailRecords}}" wx:key="id">
           <view class="detail-date">{{item.shortDate}}</view>
           <view class="detail-main">
-            <view class="detail-line">
+            <view class="detail-line {{expandedNotes[item.id] ? 'note-open' : ''}}">
               <view class="type-badge {{item.badgeClass}}">{{item.badgeText}}</view>
               <view class="detail-hours">{{fmt.fmtDur(item.duration, settingDurationFormat)}}</view>
-              <view wx:if="{{item.note}}" class="detail-note">{{item.note}}</view>
+              <view wx:if="{{item.note}}" class="detail-note {{expandedNotes[item.id] ? 'open' : ''}}" data-id="{{item.id}}" catchtap="onToggleNote">{{item.note}}</view>
             </view>
           </view>
         </view>
       </view>
     </scroll-view>
-    <view wx:else class="empty-text">当前范围内暂无记录</view>
+    <view wx:else class="empty-text">{{detailQuery ? '未找到相关记录' : '当前范围内暂无记录'}}</view>
   </view>
 
   <view class="card panel achievements-panel">
