@@ -13,6 +13,10 @@
     "backgroundTextStyle": "light",
     "backgroundColor": "#f7f8fa"
   },
+  "page": {
+    "rpxCalcMaxDeviceWidth": 420,
+    "rpxCalcBaseDeviceWidth": 375
+  },
   "style": "v2",
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"

@@ -4,6 +4,7 @@ const { ACHIEVEMENTS, evaluateAchievements } = require('../../utils/achievements
 const { payrollEstimate, cloneImages, buildClockRecord } = require('../../utils/records');
 const { formatDate, calcDuration, getPeriodKey, getMonthMeta, endForDuration, buildStatsMonthOptions } = require('../../utils/time');
 const { entryFor } = require('../../utils/holidays');
+const { lunarFor } = require('../../utils/lunar');
 const { writeTempFile, handleGeneratedFile, exportRecordsToCSV, chooseAndReadJSON } = require('../../utils/files');
 const { sanitizeOneDecimalInput, parseOneDecimal } = require('../../utils/decimal');
 const { uploadFile, downloadCloudFile, resolveRecordMedia, deleteCloudFiles } = require('../../utils/cloud-files');
@@ -34,7 +35,6 @@ const EMPTY_CALC_RESULT = {
 const WEEKDAY_NAMES = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 const WEEK_SHORT_SUNDAY = ['日', '一', '二', '三', '四', '五', '六'];
 const WEEK_SHORT_MONDAY = ['一', '二', '三', '四', '五', '六', '日'];
-const LUNAR_DAY_NAMES = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
 
 /* ========== helper functions ========== */
 
@@ -52,10 +52,6 @@ function dateFromMonthCursor(cursor) {
 function formatDisplayDate(dateStr) {
   const date = new Date(`${dateStr}T00:00:00`);
   return `${date.getMonth() + 1}月${date.getDate()}日 ${WEEKDAY_NAMES[date.getDay()]}`;
-}
-
-function getPseudoLunarText(day) {
-  return LUNAR_DAY_NAMES[(day - 1) % 30];
 }
 
 function recordTagClass(record) {
@@ -136,6 +132,7 @@ function buildMonthDays(currentDate, records, selectedDate, weekStart) {
     const showLeave = !otRecords.length && leaveRecords.length;
     const shown = showLeave ? leaveRecords : otRecords;
     const holiday = entryFor(dateStr);
+    const lun = lunarFor(dateStr);
     days.push({
       empty: false,
       key: dateStr,
@@ -144,7 +141,8 @@ function buildMonthDays(currentDate, records, selectedDate, weekStart) {
       selected: selectedDate === dateStr,
       isWeekend: date.getDay() === 0 || date.getDay() === 6,
       isToday: formatDate(new Date()) === dateStr,
-      lunarText: holiday ? (holiday.off ? '休' : '班') : getPseudoLunarText(day),
+      lunarText: holiday ? (holiday.off ? '休' : '班') : (lun ? lun.dayCn : ''),
+      lunarReal: lun ? `${lun.monthCn}${lun.dayCn}` : '',
       holidayClass: holiday ? (holiday.off ? 'holiday-off' : 'holiday-work') : '',
       dayRecords,
       dayTotal: Number(shown.reduce((sum, r) => sum + Number(r.duration || 0), 0).toFixed(1)),
@@ -323,6 +321,7 @@ function buildDetailRecords(records, rangeKey, filter, anchorDate, query) {
       duration: item.duration,
       note: item.note,
       shortDate: q ? item.date.replace(/-/g, '/') : item.date.slice(5).replace('-', '/'),
+      dateWide: !!q,
       badgeClass: recordTagClass(item),
       badgeText: item.category === RecordCategory.LEAVE
         ? '请假'
@@ -592,6 +591,12 @@ Page({
   this.donutWidth = 0;
   this.donutHeight = 0;
   this.donutSegments = [];         // 存储扇区角度范围，用于点击检测
+  // 按实际渲染高度校正顶栏占位与菜单位置（不同机型胶囊高度/系统字号不同，算不准只能量）
+  wx.createSelectorQuery().in(this).select('.hero').boundingClientRect((rect) => {
+    if (rect && rect.height) {
+      this.setData({ heroHeight: rect.height, menuTop: rect.height + 8 });
+    }
+  }).exec();
   },
 
 
@@ -720,7 +725,7 @@ ensureDonutCanvas(retries = 5) {
       : candidateDays.find((item) => !item.empty && item.isToday) || candidateDays.find((item) => !item.empty);
     selectedDate = targetDay ? targetDay.dateStr : '';
     const monthDays = buildMonthDays(currentDate, this.data.records, selectedDate, this.data.weekStart);
-    const lunarInfo = targetDay ? `农历 ${targetDay.lunarText}` : '';
+    const lunarInfo = targetDay ? `农历 ${targetDay.lunarReal}` : '';
     const selectedDayState = buildSelectedDayState(selectedDate, this.data.records);
     const calMonthOptions = buildStatsMonthOptions(this.data.records);
     const calMonthIndex = Math.max(0, calMonthOptions.findIndex((o) => o.cursor === currentMonthCursor));
@@ -785,7 +790,7 @@ ensureDonutCanvas(retries = 5) {
     this.setData({
       ...buildSelectedDayState(dateStr, this.data.records),
       monthDays,
-      lunarInfo: target ? `农历 ${target.lunarText}` : ''
+      lunarInfo: target ? `农历 ${target.lunarReal}` : ''
     }, () => {
       this.resolveSelectedMedia();
     });

@@ -2,7 +2,7 @@
 
 <view class="container {{currentTab === 'calendar' ? 'calendar-page' : 'stats-page'}}" style="--c-weekday: {{theme.weekday}}; --c-weekend: {{theme.weekend}}; --c-holiday: {{theme.holiday}}; --c-leave: {{theme.leave}};">
   <view class="hero" style="padding-top: {{navTop}}px;">
-    <view class="nav" style="height: {{navHeight}}px; padding-right: {{capsuleSpace}}px;">
+    <view class="nav" style="min-height: {{navHeight}}px; padding-right: {{capsuleSpace}}px;">
       <view class="brand">
         <view class="brand-icon">
           <view class="brand-handle"></view>
@@ -301,7 +301,7 @@
     <scroll-view wx:if="{{detailRecords.length}}" class="detail-scroll" scroll-y="true" enhanced="true" show-scrollbar="false">
       <view class="detail-list">
         <view class="detail-item" wx:for="{{detailRecords}}" wx:key="id">
-          <view class="detail-date">{{item.shortDate}}</view>
+          <view class="detail-date {{item.dateWide ? 'wide' : ''}}">{{item.shortDate}}</view>
           <view class="detail-main">
             <view class="detail-line {{expandedNotes[item.id] ? 'note-open' : ''}}">
               <view class="type-badge {{item.badgeClass}}">{{item.badgeText}}</view>

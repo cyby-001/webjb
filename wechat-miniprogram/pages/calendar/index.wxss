@@ -1483,14 +1483,20 @@
 }
 
 .detail-date {
-  min-width: 76rpx;
+  width: 96rpx;
   flex-shrink: 0;
-  padding: 0 6rpx;
+  box-sizing: border-box;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   color: #475569;
   font-size: 26rpx;
   font-weight: 800;
   text-align: center;
+}
+
+.detail-date.wide {
+  width: auto;
+  padding: 0 6rpx;
 }
 
 .detail-main {
@@ -1506,8 +1512,9 @@
 
 .type-badge {
   height: 40rpx;
-  min-width: 66rpx;
-  padding: 0 14rpx;
+  width: 92rpx;
+  flex-shrink: 0;
+  box-sizing: border-box;
   border-radius: 10rpx;
   color: #ffffff;
   font-size: 20rpx;
